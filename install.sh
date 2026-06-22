@@ -96,6 +96,8 @@ else
   else
     cp -R "$SRC/frames" "$DEST/frames"
   fi
+  # sprite generator, so CLAWD_COLOR can recolor at runtime
+  cp "$SELF/tools/gen-clawd.py" "$DEST/gen-clawd.py" 2>/dev/null || true
   chmod +x "$DEST"/*.sh
   say "  done."
 fi

@@ -80,6 +80,8 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_SHOW_LABELS` | `1` | Show the `idle · working · waiting` pills (`0` = mascot only) |
 | `CLAWD_IMG_SCALE` | `0.4` | Sprite scale (image mode) |
 | `CLAWD_IMG_WIDTH` | `34` | Mascot item width in px (image mode) |
+| `CLAWD_COLOR` | `D97757` | Sprite color `RRGGBB` — auto-recolors (needs `python3`) |
+| `CLAWD_DEAD_COLOR` | `7B7D7B` | Color of the "dead"/error sprite |
 | `CLAWD_FG` | `0xfff5f5f7` | Active/bright pill color |
 | `CLAWD_MUTED` | `0xff8e8e93` | Dimmed (inactive) pill color |
 | `CLAWD_SEP_COLOR` | `0xff5a5a5e` | Separator dot color |
@@ -97,6 +99,19 @@ export CLAWD_SHOW_LABELS=0
 export CLAWD_IMG_SCALE=0.8
 source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
+
+Example — match a monochrome bar (near-white clawd in a graphite box):
+
+```sh
+export CLAWD_COLOR=f5f5f7          # recolors the sprite to your foreground
+export CLAWD_BG=0xbf1c1c1e         # match your box fill
+export CLAWD_BORDER=0xff48484a     # and border
+export CLAWD_RADIUS=9
+source "$CONFIG_DIR/clawd/clawd.widget.sh"
+```
+
+`CLAWD_COLOR` renders recolored frames once (cached under `~/.cache/sketchybar-clawd/`)
+using the bundled `gen-clawd.py`; the shipped default stays Claude orange.
 
 ### The mascot sprite
 

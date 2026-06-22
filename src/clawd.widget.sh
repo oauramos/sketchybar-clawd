@@ -29,16 +29,36 @@ CLAWD_FRAMES_DIR="$CLAWD_DIR/frames"
 . "$CLAWD_DIR/clawd.lib.sh"
 clawd_load_config
 
-# Persist the resolved config so the daemon-spawned plugin sees the same
-# settings (the rc's exported vars do not reach plugin processes).
 _clawd_state="$(clawd_state_dir)"
 mkdir -p "$_clawd_state"
+
+# Recolor the sprite to CLAWD_COLOR (image mode only). The shipped frames are
+# D97757; any other color is rendered once by the bundled generator into a cached
+# per-color dir (needs python3). Falls back to the shipped frames if unavailable.
+if [ "$CLAWD_STYLE" = "image" ] && [ "$CLAWD_COLOR" != "D97757" ]; then
+  _gen=""
+  for _c in "$CLAWD_DIR/gen-clawd.py" "$CLAWD_DIR/../tools/gen-clawd.py"; do
+    [ -f "$_c" ] && { _gen="$_c"; break; }
+  done
+  _py="$(PATH="/usr/bin:$PATH" command -v python3 2>/dev/null || true)"
+  _cdir="$_clawd_state/frames-$CLAWD_COLOR-$CLAWD_DEAD_COLOR"
+  if [ -n "$_gen" ] && [ -n "$_py" ]; then
+    [ -f "$_cdir/clawd-open.png" ] || "$_py" "$_gen" --out "$_cdir" \
+      --color "$CLAWD_COLOR" --dead-color "$CLAWD_DEAD_COLOR" >/dev/null 2>&1
+    [ -f "$_cdir/clawd-open.png" ] && CLAWD_FRAMES_DIR="$_cdir"
+  fi
+  clawd_load_config   # re-derive frame paths for the (possibly recolored) dir
+fi
+
+# Persist the resolved config so the daemon-spawned plugin sees the same
+# settings (the rc's exported vars do not reach plugin processes).
 {
   echo "CLAWD_STYLE=$CLAWD_STYLE"
   echo "CLAWD_FG=$CLAWD_FG"
   echo "CLAWD_MUTED=$CLAWD_MUTED"
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
   echo "CLAWD_SHOW_LABELS=$CLAWD_SHOW_LABELS"
+  echo "CLAWD_FRAMES_DIR=$CLAWD_FRAMES_DIR"
 } >"$_clawd_state/clawd.env"
 
 _clawd_plugin="$CLAWD_DIR/clawd.plugin.sh"
