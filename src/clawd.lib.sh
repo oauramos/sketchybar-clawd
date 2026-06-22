@@ -1,5 +1,6 @@
 #!/bin/sh
-# clawd.lib.sh — shared config defaults and mascot frames for sketchybar-clawd.
+# clawd.lib.sh — shared config defaults, mascot frames, and per-session helpers
+# for sketchybar-clawd.
 #
 # Sourced by both clawd.widget.sh (from your sketchybarrc) and clawd.plugin.sh
 # (the item script the SketchyBar daemon spawns). Pure definitions + functions,
@@ -9,103 +10,98 @@
 # file, so silence "appears unused" for the whole file.
 # shellcheck disable=SC2034
 
-# Where mutable runtime state lives (PID file + resolved config snapshot).
+# Mutable runtime state (sprite frame cache + per-session states + PID file).
 clawd_state_dir() {
   printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar-clawd"
 }
+# One file per live Claude Code session: name = session_id, content = state.
+clawd_sessions_dir() {
+  printf '%s' "$(clawd_state_dir)/sessions"
+}
+
+# Map a session state to its dot glyph.
+clawd_dot() {
+  case "$1" in
+    working) printf '%s' "$CLAWD_DOT_WORK" ;;
+    waiting) printf '%s' "$CLAWD_DOT_WAIT" ;;
+    *) printf '%s' "$CLAWD_DOT_IDLE" ;;
+  esac
+}
 
 # Resolve every CLAWD_* setting from the environment, applying defaults, and
-# select the mascot frames for the chosen style. Idempotent — safe to call again
-# after sourcing an overrides file.
+# select the mascot frames. Idempotent — safe to call again after sourcing an
+# overrides file.
 #
-# Knobs (all overridable via environment before sourcing clawd.widget.sh):
-#   CLAWD_STYLE        image (default, the pixel-art sprite) | blocks | braille | ascii
-#   CLAWD_POSITION     right (default) | left | center
-#   CLAWD_SHOW_LABELS  1 (default, show idle/working/waiting segments) | 0
-#   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.4)
-#   CLAWD_IMG_WIDTH    image-mode item width in px (default 34)
-#   CLAWD_IMG_PAD_LEFT left margin before the sprite, px (default 0)
-#   CLAWD_PILL_WIDTH   fixed width for each status pill, px — equal-width centered
-#                      grid (default 0 = auto-size to each word)
-#   CLAWD_COLOR        sprite color RRGGBB (default neutral white; auto-recolors via
-#                      the bundled generator — needs python3 — and caches the result)
-#   CLAWD_DEAD_COLOR   color for the "dead"/error sprite (default 7b7d7b gray)
-#   CLAWD_FRAMES_DIR   dir holding clawd-open/closed/dead.png (set automatically)
-#   CLAWD_FG           active/bright color   (default near-white)
-#   CLAWD_MUTED        dimmed color          (default gray)
-#   CLAWD_SEP_COLOR    separator dot color
-#   CLAWD_ICON_FONT    mascot font  (glyph styles only; needs a glyph-capable font)
-#   CLAWD_LABEL_FONT   segment label font
-#   CLAWD_FRAME_MS     animation frame interval in ms (default 150)
-#   CLAWD_BG / CLAWD_BORDER / CLAWD_BORDER_WIDTH / CLAWD_RADIUS / CLAWD_HEIGHT
-#                      bracket (box) appearance
-#   CLAWD_LABEL_IDLE / CLAWD_LABEL_WORK / CLAWD_LABEL_WAIT / CLAWD_SEP
-#                      segment text and separator glyph
+# Knobs (override via environment before sourcing clawd.widget.sh):
+#   Mascot (the clawd icon on the left):
+#     CLAWD_STYLE        image (default, pixel-art sprite) | blocks | braille | ascii
+#     CLAWD_POSITION     right (default) | left | center
+#     CLAWD_IMG_SCALE    sprite scale (default 0.4)        CLAWD_IMG_WIDTH  px (default 34)
+#     CLAWD_IMG_PAD_LEFT left margin before the sprite, px (default 0)
+#     CLAWD_COLOR        sprite color RRGGBB (default neutral white; auto-recolors
+#                        via the bundled generator — needs python3 — and caches it)
+#     CLAWD_DEAD_COLOR   "dead"/error sprite color (default 7b7d7b)
+#     CLAWD_FRAME_MS     blink frame interval ms (default 150)
+#     CLAWD_ICON_FONT    mascot font (glyph styles only)
+#   Per-session status dots (one per running Claude Code session):
+#     CLAWD_SHOW_DOTS    1 (default) | 0 (mascot only)
+#     CLAWD_DOT_IDLE / CLAWD_DOT_WORK / CLAWD_DOT_WAIT   glyphs (○ ● ◐)
+#     CLAWD_DOT_SEP      separator between dots (default " ")
+#     CLAWD_DOT_FONT     dots font     CLAWD_DOT_COLOR  dots color (default CLAWD_FG)
+#     CLAWD_SESSION_TTL  prune sessions with no update in N seconds (default 28800)
+#   Box (bracket) appearance:
+#     CLAWD_BG / CLAWD_BORDER / CLAWD_BORDER_WIDTH / CLAWD_RADIUS / CLAWD_HEIGHT
+#     CLAWD_FG           foreground/accent color (default near-white)
 clawd_load_config() {
   CLAWD_STYLE="${CLAWD_STYLE:-image}"
   CLAWD_POSITION="${CLAWD_POSITION:-right}"
-  CLAWD_SHOW_LABELS="${CLAWD_SHOW_LABELS:-1}"
 
-  # image mode: the clawd pixel-art sprite (PNG via background.image)
+  CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"
+
+  # sprite (image mode)
   CLAWD_FRAMES_DIR="${CLAWD_FRAMES_DIR:-}"
   CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.4}"
   CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-34}"
-  CLAWD_IMG_PAD_LEFT="${CLAWD_IMG_PAD_LEFT:-0}"   # left margin before the sprite
-  CLAWD_PILL_WIDTH="${CLAWD_PILL_WIDTH:-0}"        # 0 = auto; >0 = fixed equal-width centered pills
-  CLAWD_SHIPPED_COLOR="ffffff"                # color of the committed src/frames
+  CLAWD_IMG_PAD_LEFT="${CLAWD_IMG_PAD_LEFT:-0}"
+  CLAWD_SHIPPED_COLOR="ffffff"
   CLAWD_SHIPPED_DEAD="7b7d7b"
-  CLAWD_COLOR="${CLAWD_COLOR:-$CLAWD_SHIPPED_COLOR}"    # sprite color (RRGGBB)
+  CLAWD_COLOR="${CLAWD_COLOR:-$CLAWD_SHIPPED_COLOR}"
   CLAWD_DEAD_COLOR="${CLAWD_DEAD_COLOR:-$CLAWD_SHIPPED_DEAD}"
-
-  CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"
-  CLAWD_MUTED="${CLAWD_MUTED:-0xff8e8e93}"
-  CLAWD_SEP_COLOR="${CLAWD_SEP_COLOR:-0xff5a5a5e}"
-
   CLAWD_ICON_FONT="${CLAWD_ICON_FONT:-Hack Nerd Font:Bold:12.0}"
-  CLAWD_LABEL_FONT="${CLAWD_LABEL_FONT:-SF Pro:Semibold:13.0}"
-
   CLAWD_FRAME_MS="${CLAWD_FRAME_MS:-150}"
 
+  # per-session dots
+  CLAWD_SHOW_DOTS="${CLAWD_SHOW_DOTS:-1}"
+  CLAWD_DOT_IDLE="${CLAWD_DOT_IDLE:-○}"
+  CLAWD_DOT_WORK="${CLAWD_DOT_WORK:-●}"
+  CLAWD_DOT_WAIT="${CLAWD_DOT_WAIT:-◐}"
+  CLAWD_DOT_SEP="${CLAWD_DOT_SEP:- }"
+  CLAWD_DOT_FONT="${CLAWD_DOT_FONT:-SF Pro:Bold:14.0}"
+  CLAWD_DOT_COLOR="${CLAWD_DOT_COLOR:-$CLAWD_FG}"
+  CLAWD_SESSION_TTL="${CLAWD_SESSION_TTL:-28800}"
+
+  # box
   CLAWD_BG="${CLAWD_BG:-0x22ffffff}"
   CLAWD_BORDER="${CLAWD_BORDER:-0x33ffffff}"
   CLAWD_BORDER_WIDTH="${CLAWD_BORDER_WIDTH:-1}"
   CLAWD_RADIUS="${CLAWD_RADIUS:-8}"
   CLAWD_HEIGHT="${CLAWD_HEIGHT:-26}"
 
-  CLAWD_LABEL_IDLE="${CLAWD_LABEL_IDLE:-idle}"
-  CLAWD_LABEL_WORK="${CLAWD_LABEL_WORK:-working}"
-  CLAWD_LABEL_WAIT="${CLAWD_LABEL_WAIT:-waiting}"
-  CLAWD_SEP="${CLAWD_SEP:-·}"
-
-  # Mascot frames. CLAWD_WORK is a space-separated list of frames (no spaces
-  # *inside* a frame). idle/wait are single static frames; in image mode the
-  # frames are PNG paths, otherwise they are glyph strings.
+  # Mascot frames. CLAWD_WORK is a space-separated frame list (the sprite blinks
+  # while any session is working). In image mode frames are PNG paths.
   case "$CLAWD_STYLE" in
     braille)
-      CLAWD_IDLE="⡏⣿⣹"
-      CLAWD_WAIT="⢇⣿⡸"
-      CLAWD_WORK="⡏⣿⣹ ⢏⣿⡹ ⣾⣿⣷ ⢏⣿⡹"
-      ;;
+      CLAWD_IDLE="⡏⣿⣹"; CLAWD_WAIT="⢇⣿⡸"; CLAWD_WORK="⡏⣿⣹ ⢏⣿⡹ ⣾⣿⣷ ⢏⣿⡹" ;;
     ascii)
-      CLAWD_IDLE="(o.o)"
-      CLAWD_WAIT="(o.?)"
-      CLAWD_WORK="(o.o) (-.o) (o.o) (o.-)"
-      ;;
+      CLAWD_IDLE="(o.o)"; CLAWD_WAIT="(o.?)"; CLAWD_WORK="(o.o) (-.o) (o.o) (o.-)" ;;
     blocks)
-      # A small sitting clawd with arms (glyph fallback).
-      CLAWD_IDLE="▖▟██▙▗"
-      CLAWD_WAIT="▘▟██▙▝"
-      CLAWD_WORK="▖▟██▙▗ ▌▟██▙▐ ▘▟██▙▝ ▌▟██▙▐"
-      ;;
+      CLAWD_IDLE="▖▟██▙▗"; CLAWD_WAIT="▘▟██▙▝"; CLAWD_WORK="▖▟██▙▗ ▌▟██▙▐ ▘▟██▙▝ ▌▟██▙▐" ;;
     image | *)
-      # Default: the real clawd pixel-art sprite (PNG via background.image).
-      # working = blink (mostly eyes-open with a quick shut); idle/waiting = open.
       CLAWD_STYLE="image"
       _f="${CLAWD_FRAMES_DIR}"
       CLAWD_IDLE="$_f/clawd-open.png"
       CLAWD_WAIT="$_f/clawd-open.png"
       CLAWD_DEAD="$_f/clawd-dead.png"
-      CLAWD_WORK="$_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-closed.png"
-      ;;
+      CLAWD_WORK="$_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-closed.png" ;;
   esac
 }

@@ -62,20 +62,24 @@ if [ "$MODE" = "install" ]; then
   jq --arg hook "$HOOK" "
     $STRIP
     .hooks = (.hooks // {})
+    | .hooks.SessionStart     = (strip(\"SessionStart\")     + [{hooks:[{type:\"command\", command:(\$hook+\" start\")}]}])
     | .hooks.UserPromptSubmit = (strip(\"UserPromptSubmit\") + [{hooks:[{type:\"command\", command:(\$hook+\" working\")}]}])
     | .hooks.Stop             = (strip(\"Stop\")             + [{hooks:[{type:\"command\", command:(\$hook+\" idle\")}]}])
     | .hooks.StopFailure      = (strip(\"StopFailure\")      + [{hooks:[{type:\"command\", command:(\$hook+\" idle\")}]}])
     | .hooks.Notification     = (strip(\"Notification\")     + [{matcher:\"\", hooks:[{type:\"command\", command:(\$hook+\" notification\")}]}])
+    | .hooks.SessionEnd       = (strip(\"SessionEnd\")       + [{hooks:[{type:\"command\", command:(\$hook+\" end\")}]}])
   " "$SETTINGS" >"$tmp"
 else
   jq "
     $STRIP
     if (.hooks | type) != \"object\" then .
     else
-      .hooks.UserPromptSubmit = strip(\"UserPromptSubmit\")
+      .hooks.SessionStart    = strip(\"SessionStart\")
+      | .hooks.UserPromptSubmit = strip(\"UserPromptSubmit\")
       | .hooks.Stop          = strip(\"Stop\")
       | .hooks.StopFailure   = strip(\"StopFailure\")
       | .hooks.Notification  = strip(\"Notification\")
+      | .hooks.SessionEnd    = strip(\"SessionEnd\")
       | .hooks |= with_entries(select(.value | length > 0))
       | if (.hooks | length) == 0 then del(.hooks) else . end
     end

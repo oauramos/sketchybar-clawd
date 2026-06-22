@@ -1,6 +1,9 @@
 {
-  "_comment": "Reference snippet — merge this `hooks` block into ~/.claude/settings.json (do NOT replace the whole file). `hooks/install-hooks.sh` does this safely via jq. Adjust the path if you installed clawd somewhere other than the default sketchybar config dir.",
+  "_comment": "Reference snippet — merge this `hooks` block into ~/.claude/settings.json (do NOT replace the whole file). `hooks/install-hooks.sh` does this safely via jq. Adjust the path if you installed clawd somewhere other than the default sketchybar config dir. Each session is tracked by its session_id, so one dot per running session.",
   "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh start" } ] }
+    ],
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh working" } ] }
     ],
@@ -12,6 +15,9 @@
     ],
     "Notification": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh notification" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh end" } ] }
     ]
   }
 }

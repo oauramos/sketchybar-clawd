@@ -1,42 +1,45 @@
 #!/bin/sh
-# clawd.hook.sh — bridge from Claude Code hooks to the SketchyBar `claude_state`
-# event. Configure your hooks (see hooks/install-hooks.sh) to call it as:
+# clawd.hook.sh — bridge from Claude Code hooks to the per-session state store.
 #
-#     "$CONFIG_DIR/clawd/clawd.hook.sh" working
-#     "$CONFIG_DIR/clawd/clawd.hook.sh" idle
-#     "$CONFIG_DIR/clawd/clawd.hook.sh" notification    # reads stdin JSON .type
+# Every hook event carries a `session_id` on stdin; this records that session's
+# state under ~/.cache/sketchybar-clawd/sessions/<session_id> and pokes SketchyBar
+# to redraw. One session = one status dot in the bar.
 #
-# Args: working | waiting | idle | notification
-# It writes NOTHING to stdout (a Claude hook's stdout is fed back to the model),
-# and always exits 0 so it can never block or fail a turn.
+# Wire it (see hooks/install-hooks.sh) as:
+#   SessionStart    -> clawd.hook.sh start
+#   UserPromptSubmit-> clawd.hook.sh working
+#   Stop / StopFailure -> clawd.hook.sh idle
+#   Notification    -> clawd.hook.sh notification   (reads .type)
+#   SessionEnd      -> clawd.hook.sh end
+#
+# Writes nothing to stdout (a hook's stdout is fed back to Claude); always exit 0.
 
-# The launchd-spawned environment and minimal hook environments may lack the
-# dir that holds `sketchybar`; cover the common install locations.
 export PATH="/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/usr/bin:/bin:$PATH"
 SB="$(command -v sketchybar 2>/dev/null)" || exit 0
 [ -n "$SB" ] || exit 0
 
-state=""
+SESS="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar-clawd/sessions"
+mkdir -p "$SESS" 2>/dev/null
+
+json="$(cat 2>/dev/null)"
+sid="$(printf '%s' "$json" | jq -r '.session_id // empty' 2>/dev/null)"
+[ -n "$sid" ] || exit 0
+case "$sid" in *[!A-Za-z0-9._-]*) exit 0 ;; esac   # keep it a safe filename
+
 case "${1:-}" in
-  working | waiting | idle)
-    state="$1"
-    ;;
+  start | idle) printf 'idle' >"$SESS/$sid" ;;
+  working) printf 'working' >"$SESS/$sid" ;;
+  waiting) printf 'waiting' >"$SESS/$sid" ;;
   notification)
-    # Branch on the notification subtype Claude Code passes on stdin.
-    #   permission_prompt / elicitation_dialog -> Claude needs your input (waiting)
-    #   idle_prompt                            -> Claude is done, awaiting prompt (idle)
-    #   anything else (auth_success, ...)      -> ignore
-    type="$(jq -r '.type // empty' 2>/dev/null)"
+    type="$(printf '%s' "$json" | jq -r '.type // empty' 2>/dev/null)"
     case "$type" in
-      permission_prompt | elicitation_dialog) state="waiting" ;;
-      idle_prompt) state="idle" ;;
+      permission_prompt | elicitation_dialog) printf 'waiting' >"$SESS/$sid" ;;
+      idle_prompt) printf 'idle' >"$SESS/$sid" ;;
       *) exit 0 ;;
-    esac
-    ;;
-  *)
-    exit 0
-    ;;
+    esac ;;
+  end) rm -f "$SESS/$sid" ;;
+  *) exit 0 ;;
 esac
 
-"$SB" --trigger claude_state STATE="$state" >/dev/null 2>&1
+"$SB" --trigger claude_state >/dev/null 2>&1
 exit 0
