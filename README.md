@@ -85,7 +85,7 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_SHOW_DOTS` | `1` | Show the per-session dots (`0` = mascot only) |
 | `CLAWD_DOT_IDLE` / `CLAWD_DOT_WORK` / `CLAWD_DOT_WAIT` | `○` / `●` / `◐` | Per-state dot glyphs |
 | `CLAWD_DOT_SEP` | `" "` | Separator between dots |
-| `CLAWD_DOT_FONT` | `SF Pro:Bold:14.0` | Dots font |
+| `CLAWD_DOT_FONT` | `Hack Nerd Font:Bold:14.0` | Dots font (a Nerd/monospace font keeps `○ ● ◐` the same size) |
 | `CLAWD_DOT_COLOR` | `$CLAWD_FG` | Dots color |
 | `CLAWD_SESSION_TTL` | `28800` | Prune a session with no update for this many seconds (safety net) |
 | `CLAWD_FG` | `0xfff5f5f7` | Foreground/accent color |

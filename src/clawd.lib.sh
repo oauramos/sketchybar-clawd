@@ -76,7 +76,7 @@ clawd_load_config() {
   CLAWD_DOT_WORK="${CLAWD_DOT_WORK:-●}"
   CLAWD_DOT_WAIT="${CLAWD_DOT_WAIT:-◐}"
   CLAWD_DOT_SEP="${CLAWD_DOT_SEP:- }"
-  CLAWD_DOT_FONT="${CLAWD_DOT_FONT:-SF Pro:Bold:14.0}"
+  CLAWD_DOT_FONT="${CLAWD_DOT_FONT:-Hack Nerd Font:Bold:14.0}"   # geometric glyphs render uniform here
   CLAWD_DOT_COLOR="${CLAWD_DOT_COLOR:-$CLAWD_FG}"
   CLAWD_SESSION_TTL="${CLAWD_SESSION_TTL:-28800}"
 
