@@ -8,15 +8,16 @@ is doing right now — **working**, **waiting** for you, or **idle**.
   <img src="assets/clawd.png" alt="clawd widget showing working / waiting / idle states" width="280">
 </p>
 
-The mascot is drawn with terminal glyphs (no images), and the active state lights up
-while the rest dim — the same highlight style as SketchyBar workspace pills. When Claude
-is working, the mascot wiggles.
+The mascot is the **clawd pixel-art sprite** (the same 18×5 bitmap as the
+[Claude Usage Stick](https://github.com/oauramos/claude-usage-stick) firmware), and the
+active state lights up while the rest dim — the same highlight style as SketchyBar
+workspace pills. When Claude is working, clawd **blinks**.
 
 | State | When | Mascot | Pill lit |
 |-------|------|--------|----------|
-| **working** | From the moment you submit a prompt until the turn ends | wiggles | `working` |
-| **waiting** | Claude needs you — a permission prompt or a dialog | alert pose | `waiting` |
-| **idle** | Turn finished / nothing running | resting | `idle` |
+| **working** | From the moment you submit a prompt until the turn ends | blinks | `working` |
+| **waiting** | Claude needs you — a permission prompt or a dialog | eyes open | `waiting` |
+| **idle** | Turn finished / nothing running | eyes open | `idle` |
 
 It works as a standalone widget too: trigger the states yourself with
 `sketchybar --trigger claude_state STATE=working` from anything.
@@ -24,12 +25,13 @@ It works as a standalone widget too: trigger the states yourself with
 ## Requirements
 
 - **macOS** with [SketchyBar](https://github.com/FelixKratz/SketchyBar) installed and running.
-- A **glyph-capable font** for the mascot. The default (`blocks`) and `braille` styles use
-  Unicode block/braille characters — any [Nerd Font](https://www.nerdfonts.com/) (e.g.
-  `Hack Nerd Font`) renders them well. No Nerd Font? Use `CLAWD_STYLE=ascii`.
 - **`jq`** — used to read the notification type and to merge the hooks (`brew install jq`).
   Optional if you don't use the Claude Code hooks.
 - **Claude Code** — for the hooks that drive the states automatically.
+
+The default `image` mascot ships as ready-made PNGs and needs no extra fonts. (The optional
+glyph styles — `blocks` / `braille` — want a [Nerd Font](https://www.nerdfonts.com/) like
+`Hack Nerd Font`; `ascii` needs nothing.)
 
 ## Install
 
@@ -73,26 +75,40 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAWD_STYLE` | `blocks` | Mascot glyph set: `blocks`, `braille`, or `ascii` |
+| `CLAWD_STYLE` | `image` | Mascot: `image` (pixel-art sprite), or glyphs `blocks` / `braille` / `ascii` |
 | `CLAWD_POSITION` | `right` | Bar side: `left`, `center`, `right` |
 | `CLAWD_SHOW_LABELS` | `1` | Show the `idle · working · waiting` pills (`0` = mascot only) |
-| `CLAWD_FG` | `0xfff5f5f7` | Active/bright color |
-| `CLAWD_MUTED` | `0xff8e8e93` | Dimmed (inactive) color |
+| `CLAWD_IMG_SCALE` | `0.6` | Sprite scale (image mode) |
+| `CLAWD_IMG_WIDTH` | `46` | Mascot item width in px (image mode) |
+| `CLAWD_FG` | `0xfff5f5f7` | Active/bright pill color |
+| `CLAWD_MUTED` | `0xff8e8e93` | Dimmed (inactive) pill color |
 | `CLAWD_SEP_COLOR` | `0xff5a5a5e` | Separator dot color |
-| `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:16.0` | Mascot font |
 | `CLAWD_LABEL_FONT` | `SF Pro:Semibold:13.0` | Pill label font |
+| `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:12.0` | Mascot font (glyph styles only) |
 | `CLAWD_FRAME_MS` | `150` | Animation frame interval (ms) |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box (bracket) appearance |
 | `CLAWD_LABEL_IDLE` / `CLAWD_LABEL_WORK` / `CLAWD_LABEL_WAIT` / `CLAWD_SEP` | `idle` / `working` / `waiting` / `·` | Pill text & separator |
 
-Example — braille mascot on the left, no pills:
+Example — bigger sprite on the left, no pills:
 
 ```sh
-export CLAWD_STYLE=braille
 export CLAWD_POSITION=left
 export CLAWD_SHOW_LABELS=0
+export CLAWD_IMG_SCALE=0.8
 source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
+
+### The mascot sprite
+
+The sprite is an 18×5 pixel-art clawd (rounded head, two eyes, four feet) rendered to
+`frames/clawd-open.png`, `clawd-closed.png` (blink), and `clawd-dead.png`. To recolor or
+resize them, regenerate with the bundled generator (pure Python 3, no dependencies):
+
+```sh
+python3 tools/gen-clawd.py --out ~/.config/sketchybar/clawd/frames --color D97757 --cell-w 4 --cell-h 8
+```
+
+Prefer text? Set `CLAWD_STYLE=blocks` (or `braille` / `ascii`) for a glyph mascot instead.
 
 ## Claude Code hooks
 
@@ -118,9 +134,9 @@ Remove the hooks: `hooks/install-hooks.sh --remove`.
 - The hooks call `clawd.hook.sh <state>`, which fires a custom SketchyBar event:
   `sketchybar --trigger claude_state STATE=<state>`.
 - The `clawd` item subscribes to `claude_state`; `clawd.plugin.sh` highlights the active pill
-  and, while working, starts a small background worker that cycles the mascot frames every
-  `CLAWD_FRAME_MS`. A background worker is used because SketchyBar's `update_freq` is
-  whole-second — too coarse for a smooth wiggle.
+  and, while working, starts a small background worker that cycles the mascot frames (swapping
+  `background.image` for the sprite) every `CLAWD_FRAME_MS`. A background worker is used because
+  SketchyBar's `update_freq` is whole-second — too coarse for a smooth blink.
 - The worker is tracked by a PID file in `~/.cache/sketchybar-clawd/` and stopped on every
   state change and on reload, so no animation process is ever left running.
 
@@ -135,9 +151,10 @@ Removes the widget files, the `source` line, and the hooks (backups kept). Flags
 
 ## Troubleshooting
 
-- **Mascot shows boxes/▯ (tofu):** your mascot font lacks the glyphs. Set
-  `CLAWD_ICON_FONT` to a Nerd Font, or use `CLAWD_STYLE=blocks` (widely supported) or
-  `CLAWD_STYLE=ascii` (no special font needed).
+- **Mascot doesn't show (image mode):** make sure `frames/*.png` exist next to the scripts
+  (`ls ~/.config/sketchybar/clawd/frames`) and bump `CLAWD_IMG_WIDTH` if it looks clipped.
+- **Mascot shows boxes/▯ (glyph styles):** the font lacks the glyphs. Use the default
+  `CLAWD_STYLE=image`, point `CLAWD_ICON_FONT` at a Nerd Font, or use `CLAWD_STYLE=ascii`.
 - **Nothing changes when Claude runs:** confirm the hooks are installed
   (`jq .hooks ~/.claude/settings.json`) and that `clawd.hook.sh` is executable. Test the bar
   side directly: `sketchybar --trigger claude_state STATE=working`.
