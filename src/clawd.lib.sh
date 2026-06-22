@@ -22,8 +22,8 @@ clawd_state_dir() {
 #   CLAWD_STYLE        image (default, the pixel-art sprite) | blocks | braille | ascii
 #   CLAWD_POSITION     right (default) | left | center
 #   CLAWD_SHOW_LABELS  1 (default, show idle/working/waiting segments) | 0
-#   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.6)
-#   CLAWD_IMG_WIDTH    image-mode item width in px (default 46)
+#   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.4)
+#   CLAWD_IMG_WIDTH    image-mode item width in px (default 34)
 #   CLAWD_FRAMES_DIR   dir holding clawd-open/closed/dead.png (set automatically)
 #   CLAWD_FG           active/bright color   (default near-white)
 #   CLAWD_MUTED        dimmed color          (default gray)
@@ -42,8 +42,8 @@ clawd_load_config() {
 
   # image mode: the clawd pixel-art sprite (PNG via background.image)
   CLAWD_FRAMES_DIR="${CLAWD_FRAMES_DIR:-}"
-  CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.6}"
-  CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-46}"
+  CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.4}"
+  CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-34}"
 
   CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"
   CLAWD_MUTED="${CLAWD_MUTED:-0xff8e8e93}"

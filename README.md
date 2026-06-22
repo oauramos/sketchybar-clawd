@@ -78,8 +78,8 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_STYLE` | `image` | Mascot: `image` (pixel-art sprite), or glyphs `blocks` / `braille` / `ascii` |
 | `CLAWD_POSITION` | `right` | Bar side: `left`, `center`, `right` |
 | `CLAWD_SHOW_LABELS` | `1` | Show the `idle · working · waiting` pills (`0` = mascot only) |
-| `CLAWD_IMG_SCALE` | `0.6` | Sprite scale (image mode) |
-| `CLAWD_IMG_WIDTH` | `46` | Mascot item width in px (image mode) |
+| `CLAWD_IMG_SCALE` | `0.4` | Sprite scale (image mode) |
+| `CLAWD_IMG_WIDTH` | `34` | Mascot item width in px (image mode) |
 | `CLAWD_FG` | `0xfff5f5f7` | Active/bright pill color |
 | `CLAWD_MUTED` | `0xff8e8e93` | Dimmed (inactive) pill color |
 | `CLAWD_SEP_COLOR` | `0xff5a5a5e` | Separator dot color |
