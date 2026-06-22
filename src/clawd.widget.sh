@@ -32,10 +32,12 @@ clawd_load_config
 _clawd_state="$(clawd_state_dir)"
 mkdir -p "$_clawd_state"
 
-# Recolor the sprite to CLAWD_COLOR (image mode only). The shipped frames are
-# D97757; any other color is rendered once by the bundled generator into a cached
-# per-color dir (needs python3). Falls back to the shipped frames if unavailable.
-if [ "$CLAWD_STYLE" = "image" ] && [ "$CLAWD_COLOR" != "D97757" ]; then
+# Recolor the sprite to CLAWD_COLOR (image mode only). The shipped frames are the
+# neutral default; any other color is rendered once by the bundled generator into a
+# cached per-color dir (needs python3). Falls back to the shipped frames otherwise.
+_want="$(printf '%s' "$CLAWD_COLOR" | tr 'A-Z' 'a-z')"
+_want_dead="$(printf '%s' "$CLAWD_DEAD_COLOR" | tr 'A-Z' 'a-z')"
+if [ "$CLAWD_STYLE" = "image" ] && { [ "$_want" != "$CLAWD_SHIPPED_COLOR" ] || [ "$_want_dead" != "$CLAWD_SHIPPED_DEAD" ]; }; then
   _gen=""
   for _c in "$CLAWD_DIR/gen-clawd.py" "$CLAWD_DIR/../tools/gen-clawd.py"; do
     [ -f "$_c" ] && { _gen="$_c"; break; }

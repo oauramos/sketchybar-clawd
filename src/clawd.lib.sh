@@ -24,9 +24,9 @@ clawd_state_dir() {
 #   CLAWD_SHOW_LABELS  1 (default, show idle/working/waiting segments) | 0
 #   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.4)
 #   CLAWD_IMG_WIDTH    image-mode item width in px (default 34)
-#   CLAWD_COLOR        sprite color RRGGBB (default D97757; auto-recolors via the
-#                      bundled generator — needs python3 — and caches the result)
-#   CLAWD_DEAD_COLOR   color for the "dead"/error sprite (default 7B7D7B)
+#   CLAWD_COLOR        sprite color RRGGBB (default neutral white; auto-recolors via
+#                      the bundled generator — needs python3 — and caches the result)
+#   CLAWD_DEAD_COLOR   color for the "dead"/error sprite (default 7b7d7b gray)
 #   CLAWD_FRAMES_DIR   dir holding clawd-open/closed/dead.png (set automatically)
 #   CLAWD_FG           active/bright color   (default near-white)
 #   CLAWD_MUTED        dimmed color          (default gray)
@@ -47,8 +47,10 @@ clawd_load_config() {
   CLAWD_FRAMES_DIR="${CLAWD_FRAMES_DIR:-}"
   CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.4}"
   CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-34}"
-  CLAWD_COLOR="${CLAWD_COLOR:-D97757}"        # sprite color (RRGGBB); D97757 = shipped default
-  CLAWD_DEAD_COLOR="${CLAWD_DEAD_COLOR:-7B7D7B}"
+  CLAWD_SHIPPED_COLOR="ffffff"                # color of the committed src/frames
+  CLAWD_SHIPPED_DEAD="7b7d7b"
+  CLAWD_COLOR="${CLAWD_COLOR:-$CLAWD_SHIPPED_COLOR}"    # sprite color (RRGGBB)
+  CLAWD_DEAD_COLOR="${CLAWD_DEAD_COLOR:-$CLAWD_SHIPPED_DEAD}"
 
   CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"
   CLAWD_MUTED="${CLAWD_MUTED:-0xff8e8e93}"

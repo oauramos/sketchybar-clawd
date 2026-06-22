@@ -83,7 +83,7 @@ def render(path, shut, color, cell_w, cell_h, dead=False, dead_color=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=".")
-    ap.add_argument("--color", default="D97757", help="clawd color (RRGGBB)")
+    ap.add_argument("--color", default="FFFFFF", help="clawd color (RRGGBB)")
     ap.add_argument("--dead-color", default="7B7D7B")
     ap.add_argument("--cell-w", type=int, default=4)
     ap.add_argument("--cell-h", type=int, default=8)

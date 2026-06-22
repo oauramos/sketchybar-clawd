@@ -80,7 +80,7 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_SHOW_LABELS` | `1` | Show the `idle · working · waiting` pills (`0` = mascot only) |
 | `CLAWD_IMG_SCALE` | `0.4` | Sprite scale (image mode) |
 | `CLAWD_IMG_WIDTH` | `34` | Mascot item width in px (image mode) |
-| `CLAWD_COLOR` | `D97757` | Sprite color `RRGGBB` — auto-recolors (needs `python3`) |
+| `CLAWD_COLOR` | `ffffff` | Sprite color `RRGGBB` — auto-recolors (needs `python3`) |
 | `CLAWD_DEAD_COLOR` | `7B7D7B` | Color of the "dead"/error sprite |
 | `CLAWD_FG` | `0xfff5f5f7` | Active/bright pill color |
 | `CLAWD_MUTED` | `0xff8e8e93` | Dimmed (inactive) pill color |
@@ -111,7 +111,8 @@ source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
 
 `CLAWD_COLOR` renders recolored frames once (cached under `~/.cache/sketchybar-clawd/`)
-using the bundled `gen-clawd.py`; the shipped default stays Claude orange.
+using the bundled `gen-clawd.py`; the shipped default is a neutral white that suits most
+bars (set `CLAWD_COLOR=D97757` for the classic Claude orange).
 
 ### The mascot sprite
 
@@ -120,7 +121,7 @@ The sprite is an 18×5 pixel-art clawd (rounded head, two eyes, four feet) rende
 resize them, regenerate with the bundled generator (pure Python 3, no dependencies):
 
 ```sh
-python3 tools/gen-clawd.py --out ~/.config/sketchybar/clawd/frames --color D97757 --cell-w 4 --cell-h 8
+python3 tools/gen-clawd.py --out ~/.config/sketchybar/clawd/frames --color 88c0d0 --cell-w 4 --cell-h 8
 ```
 
 Prefer text? Set `CLAWD_STYLE=blocks` (or `braille` / `ascii`) for a glyph mascot instead.
