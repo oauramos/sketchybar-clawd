@@ -35,8 +35,8 @@ mkdir -p "$_clawd_state"
 # Recolor the sprite to CLAWD_COLOR (image mode only). The shipped frames are the
 # neutral default; any other color is rendered once by the bundled generator into a
 # cached per-color dir (needs python3). Falls back to the shipped frames otherwise.
-_want="$(printf '%s' "$CLAWD_COLOR" | tr 'A-Z' 'a-z')"
-_want_dead="$(printf '%s' "$CLAWD_DEAD_COLOR" | tr 'A-Z' 'a-z')"
+_want="$(printf '%s' "$CLAWD_COLOR" | tr '[:upper:]' '[:lower:]')"
+_want_dead="$(printf '%s' "$CLAWD_DEAD_COLOR" | tr '[:upper:]' '[:lower:]')"
 if [ "$CLAWD_STYLE" = "image" ] && { [ "$_want" != "$CLAWD_SHIPPED_COLOR" ] || [ "$_want_dead" != "$CLAWD_SHIPPED_DEAD" ]; }; then
   _gen=""
   for _c in "$CLAWD_DIR/gen-clawd.py" "$CLAWD_DIR/../tools/gen-clawd.py"; do
