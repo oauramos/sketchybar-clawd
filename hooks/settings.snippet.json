@@ -1,0 +1,17 @@
+{
+  "_comment": "Reference snippet — merge this `hooks` block into ~/.claude/settings.json (do NOT replace the whole file). `hooks/install-hooks.sh` does this safely via jq. Adjust the path if you installed clawd somewhere other than the default sketchybar config dir.",
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh working" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh idle" } ] }
+    ],
+    "StopFailure": [
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh idle" } ] }
+    ],
+    "Notification": [
+      { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh notification" } ] }
+    ]
+  }
+}
