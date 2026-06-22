@@ -76,7 +76,7 @@ _clawd_add_mascot() {
                   background.image.drawing=on \
                   background.color=0x00000000 \
                   icon.drawing=off label.drawing=off \
-                  width="$CLAWD_IMG_WIDTH" \
+                  width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" \
                   script="$_clawd_plugin" \
       --subscribe clawd claude_state
   else
@@ -96,6 +96,11 @@ _clawd_add_label() { # $1=item  $2=text  $3=color  $4=pad_right
     --set "$1" icon.drawing=off \
                label="$2" label.font="$CLAWD_LABEL_FONT" label.color="$3" \
                label.padding_left=2 label.padding_right="$4"
+  # equal-width centered pills (grid) when CLAWD_PILL_WIDTH is set
+  if [ "$CLAWD_PILL_WIDTH" != "0" ]; then
+    sketchybar --set "$1" width="$CLAWD_PILL_WIDTH" label.align=center \
+                          label.padding_left=0 label.padding_right=0
+  fi
 }
 
 _clawd_add_sep() { # $1=item

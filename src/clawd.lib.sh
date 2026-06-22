@@ -24,6 +24,9 @@ clawd_state_dir() {
 #   CLAWD_SHOW_LABELS  1 (default, show idle/working/waiting segments) | 0
 #   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.4)
 #   CLAWD_IMG_WIDTH    image-mode item width in px (default 34)
+#   CLAWD_IMG_PAD_LEFT left margin before the sprite, px (default 0)
+#   CLAWD_PILL_WIDTH   fixed width for each status pill, px — equal-width centered
+#                      grid (default 0 = auto-size to each word)
 #   CLAWD_COLOR        sprite color RRGGBB (default neutral white; auto-recolors via
 #                      the bundled generator — needs python3 — and caches the result)
 #   CLAWD_DEAD_COLOR   color for the "dead"/error sprite (default 7b7d7b gray)
@@ -47,6 +50,8 @@ clawd_load_config() {
   CLAWD_FRAMES_DIR="${CLAWD_FRAMES_DIR:-}"
   CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.4}"
   CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-34}"
+  CLAWD_IMG_PAD_LEFT="${CLAWD_IMG_PAD_LEFT:-0}"   # left margin before the sprite
+  CLAWD_PILL_WIDTH="${CLAWD_PILL_WIDTH:-0}"        # 0 = auto; >0 = fixed equal-width centered pills
   CLAWD_SHIPPED_COLOR="ffffff"                # color of the committed src/frames
   CLAWD_SHIPPED_DEAD="7b7d7b"
   CLAWD_COLOR="${CLAWD_COLOR:-$CLAWD_SHIPPED_COLOR}"    # sprite color (RRGGBB)

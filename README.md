@@ -80,6 +80,8 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_SHOW_LABELS` | `1` | Show the `idle · working · waiting` pills (`0` = mascot only) |
 | `CLAWD_IMG_SCALE` | `0.4` | Sprite scale (image mode) |
 | `CLAWD_IMG_WIDTH` | `34` | Mascot item width in px (image mode) |
+| `CLAWD_IMG_PAD_LEFT` | `0` | Left margin before the sprite (px) |
+| `CLAWD_PILL_WIDTH` | `0` | Fixed equal-width centered pills (px); `0` = auto-size |
 | `CLAWD_COLOR` | `ffffff` | Sprite color `RRGGBB` — auto-recolors (needs `python3`) |
 | `CLAWD_DEAD_COLOR` | `7B7D7B` | Color of the "dead"/error sprite |
 | `CLAWD_FG` | `0xfff5f5f7` | Active/bright pill color |
