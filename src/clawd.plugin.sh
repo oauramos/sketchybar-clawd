@@ -13,6 +13,7 @@
 set -u
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
+CLAWD_FRAMES_DIR="$DIR/frames"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=clawd.lib.sh
 . "$DIR/clawd.lib.sh"
@@ -32,6 +33,16 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:$HOME/.
 SB="$(command -v sketchybar 2>/dev/null)" || exit 0
 [ -n "$SB" ] || exit 0
 
+# Set the mascot to a frame — a PNG via background.image (image mode) or a glyph
+# via icon (blocks/braille/ascii).
+set_mascot() {
+  if [ "$CLAWD_STYLE" = "image" ]; then
+    "$SB" --set clawd background.image="$1" >/dev/null 2>&1
+  else
+    "$SB" --set clawd icon="$1" >/dev/null 2>&1
+  fi
+}
+
 # Frame interval (ms -> fractional seconds for `sleep`).
 SLEEP_S="$(awk "BEGIN { printf \"%.3f\", ${CLAWD_FRAME_MS} / 1000 }" 2>/dev/null)"
 [ -n "${SLEEP_S:-}" ] || SLEEP_S="0.15"
@@ -39,9 +50,11 @@ SLEEP_S="$(awk "BEGIN { printf \"%.3f\", ${CLAWD_FRAME_MS} / 1000 }" 2>/dev/null
 # --- animation worker --------------------------------------------------------
 # Re-entered as `clawd.plugin.sh __clawd_anim__` (backgrounded by the working branch).
 if [ "${1:-}" = "__clawd_anim__" ]; then
+  _last=""
   while :; do
     for f in $CLAWD_WORK; do
-      "$SB" --set clawd icon="$f" >/dev/null 2>&1
+      [ "$f" != "$_last" ] && set_mascot "$f"   # only redraw on change
+      _last="$f"
       sleep "$SLEEP_S"
     done
   done
@@ -108,11 +121,11 @@ case "$ST" in
     ;;
   waiting)
     stop_anim
-    "$SB" --set clawd icon="$CLAWD_WAIT" >/dev/null 2>&1
+    set_mascot "$CLAWD_WAIT"
     ;;
   *)
     stop_anim
-    "$SB" --set clawd icon="$CLAWD_IDLE" >/dev/null 2>&1
+    set_mascot "$CLAWD_IDLE"
     ;;
 esac
 

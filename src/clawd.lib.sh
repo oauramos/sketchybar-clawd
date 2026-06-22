@@ -19,13 +19,16 @@ clawd_state_dir() {
 # after sourcing an overrides file.
 #
 # Knobs (all overridable via environment before sourcing clawd.widget.sh):
-#   CLAWD_STYLE        blocks (default) | braille | ascii
+#   CLAWD_STYLE        image (default, the pixel-art sprite) | blocks | braille | ascii
 #   CLAWD_POSITION     right (default) | left | center
 #   CLAWD_SHOW_LABELS  1 (default, show idle/working/waiting segments) | 0
+#   CLAWD_IMG_SCALE    image-mode sprite scale (default 0.6)
+#   CLAWD_IMG_WIDTH    image-mode item width in px (default 46)
+#   CLAWD_FRAMES_DIR   dir holding clawd-open/closed/dead.png (set automatically)
 #   CLAWD_FG           active/bright color   (default near-white)
 #   CLAWD_MUTED        dimmed color          (default gray)
 #   CLAWD_SEP_COLOR    separator dot color
-#   CLAWD_ICON_FONT    mascot font  (needs a glyph-capable font for blocks/braille)
+#   CLAWD_ICON_FONT    mascot font  (glyph styles only; needs a glyph-capable font)
 #   CLAWD_LABEL_FONT   segment label font
 #   CLAWD_FRAME_MS     animation frame interval in ms (default 150)
 #   CLAWD_BG / CLAWD_BORDER / CLAWD_BORDER_WIDTH / CLAWD_RADIUS / CLAWD_HEIGHT
@@ -33,15 +36,20 @@ clawd_state_dir() {
 #   CLAWD_LABEL_IDLE / CLAWD_LABEL_WORK / CLAWD_LABEL_WAIT / CLAWD_SEP
 #                      segment text and separator glyph
 clawd_load_config() {
-  CLAWD_STYLE="${CLAWD_STYLE:-blocks}"
+  CLAWD_STYLE="${CLAWD_STYLE:-image}"
   CLAWD_POSITION="${CLAWD_POSITION:-right}"
   CLAWD_SHOW_LABELS="${CLAWD_SHOW_LABELS:-1}"
+
+  # image mode: the clawd pixel-art sprite (PNG via background.image)
+  CLAWD_FRAMES_DIR="${CLAWD_FRAMES_DIR:-}"
+  CLAWD_IMG_SCALE="${CLAWD_IMG_SCALE:-0.6}"
+  CLAWD_IMG_WIDTH="${CLAWD_IMG_WIDTH:-46}"
 
   CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"
   CLAWD_MUTED="${CLAWD_MUTED:-0xff8e8e93}"
   CLAWD_SEP_COLOR="${CLAWD_SEP_COLOR:-0xff5a5a5e}"
 
-  CLAWD_ICON_FONT="${CLAWD_ICON_FONT:-Hack Nerd Font:Bold:16.0}"
+  CLAWD_ICON_FONT="${CLAWD_ICON_FONT:-Hack Nerd Font:Bold:12.0}"
   CLAWD_LABEL_FONT="${CLAWD_LABEL_FONT:-SF Pro:Semibold:13.0}"
 
   CLAWD_FRAME_MS="${CLAWD_FRAME_MS:-150}"
@@ -58,7 +66,8 @@ clawd_load_config() {
   CLAWD_SEP="${CLAWD_SEP:-·}"
 
   # Mascot frames. CLAWD_WORK is a space-separated list of frames (no spaces
-  # *inside* a frame). idle/wait are single static frames.
+  # *inside* a frame). idle/wait are single static frames; in image mode the
+  # frames are PNG paths, otherwise they are glyph strings.
   case "$CLAWD_STYLE" in
     braille)
       CLAWD_IDLE="⡏⣿⣹"
@@ -70,11 +79,21 @@ clawd_load_config() {
       CLAWD_WAIT="(o.?)"
       CLAWD_WORK="(o.o) (-.o) (o.o) (o.-)"
       ;;
-    blocks | *)
-      CLAWD_STYLE="blocks"
-      CLAWD_IDLE="▐▛██▜▌"
-      CLAWD_WAIT="▝▛██▜▘"
-      CLAWD_WORK="▐▛██▜▌ ▝▜██▛▘ ▐▟██▙▌ ▝▜██▛▘"
+    blocks)
+      # A small sitting clawd with arms (glyph fallback).
+      CLAWD_IDLE="▖▟██▙▗"
+      CLAWD_WAIT="▘▟██▙▝"
+      CLAWD_WORK="▖▟██▙▗ ▌▟██▙▐ ▘▟██▙▝ ▌▟██▙▐"
+      ;;
+    image | *)
+      # Default: the real clawd pixel-art sprite (PNG via background.image).
+      # working = blink (mostly eyes-open with a quick shut); idle/waiting = open.
+      CLAWD_STYLE="image"
+      _f="${CLAWD_FRAMES_DIR}"
+      CLAWD_IDLE="$_f/clawd-open.png"
+      CLAWD_WAIT="$_f/clawd-open.png"
+      CLAWD_DEAD="$_f/clawd-dead.png"
+      CLAWD_WORK="$_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-open.png $_f/clawd-closed.png"
       ;;
   esac
 }

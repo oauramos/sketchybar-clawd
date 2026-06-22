@@ -23,6 +23,7 @@ fi
 CLAWD_DIR="$(cd "$(dirname "$_clawd_src")" 2>/dev/null && pwd)"
 [ -f "$CLAWD_DIR/clawd.lib.sh" ] || CLAWD_DIR="${CONFIG_DIR:-$HOME/.config/sketchybar}/clawd"
 
+CLAWD_FRAMES_DIR="$CLAWD_DIR/frames"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=clawd.lib.sh
 . "$CLAWD_DIR/clawd.lib.sh"
@@ -45,14 +46,27 @@ _pos="$CLAWD_POSITION"
 
 # --- item builders -----------------------------------------------------------
 _clawd_add_mascot() {
-  sketchybar --add item clawd "$_pos" \
-    --set clawd icon="$CLAWD_IDLE" \
-                icon.font="$CLAWD_ICON_FONT" \
-                icon.color="$CLAWD_FG" \
-                icon.padding_left=8 icon.padding_right=6 \
-                label.drawing=off \
-                script="$_clawd_plugin" \
-    --subscribe clawd claude_state
+  if [ "$CLAWD_STYLE" = "image" ]; then
+    # pixel-art sprite via background.image; fixed width so the image isn't clipped
+    sketchybar --add item clawd "$_pos" \
+      --set clawd background.image="$CLAWD_IDLE" \
+                  background.image.scale="$CLAWD_IMG_SCALE" \
+                  background.image.drawing=on \
+                  background.color=0x00000000 \
+                  icon.drawing=off label.drawing=off \
+                  width="$CLAWD_IMG_WIDTH" \
+                  script="$_clawd_plugin" \
+      --subscribe clawd claude_state
+  else
+    sketchybar --add item clawd "$_pos" \
+      --set clawd icon="$CLAWD_IDLE" \
+                  icon.font="$CLAWD_ICON_FONT" \
+                  icon.color="$CLAWD_FG" \
+                  icon.padding_left=8 icon.padding_right=6 \
+                  label.drawing=off \
+                  script="$_clawd_plugin" \
+      --subscribe clawd claude_state
+  fi
 }
 
 _clawd_add_label() { # $1=item  $2=text  $3=color  $4=pad_right

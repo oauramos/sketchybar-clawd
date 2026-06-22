@@ -78,6 +78,7 @@ say  ""
 step "Installing widget files -> $DEST"
 if [ "$PRINT_ONLY" = "1" ]; then
   for f in $FILES; do say "  would place $DEST/$f"; done
+  say "  would place $DEST/frames/ (clawd sprite PNGs)"
 else
   mkdir -p "$DEST"
   for f in $FILES; do
@@ -88,6 +89,13 @@ else
       cp "$SRC/$f" "$DEST/$f"
     fi
   done
+  # mascot sprite frames (image mode)
+  rm -rf "$DEST/frames"
+  if [ "$LINK" = "1" ]; then
+    ln -s "$SRC/frames" "$DEST/frames"
+  else
+    cp -R "$SRC/frames" "$DEST/frames"
+  fi
   chmod +x "$DEST"/*.sh
   say "  done."
 fi
