@@ -23,7 +23,8 @@ fi
 CLAWD_DIR="$(cd "$(dirname "$_clawd_src")" 2>/dev/null && pwd)"
 [ -f "$CLAWD_DIR/clawd.lib.sh" ] || CLAWD_DIR="${CONFIG_DIR:-$HOME/.config/sketchybar}/clawd"
 
-# shellcheck source=src/clawd.lib.sh
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=clawd.lib.sh
 . "$CLAWD_DIR/clawd.lib.sh"
 clawd_load_config
 

@@ -13,7 +13,8 @@
 set -u
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=src/clawd.lib.sh
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=clawd.lib.sh
 . "$DIR/clawd.lib.sh"
 clawd_load_config
 
