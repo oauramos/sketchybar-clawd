@@ -15,6 +15,13 @@
 #   --dry-run       Print the resulting JSON, write nothing
 set -euo pipefail
 
+# This writes a user-owned Claude Code settings.json (default ~/.claude). Running
+# under sudo would create root-owned files that lock the real user out, so refuse.
+if [ "$(id -u)" -eq 0 ]; then
+  echo "install-hooks.sh: refusing to run as root — it edits a user's .claude/settings.json; run as your normal user (no sudo)." >&2
+  exit 1
+fi
+
 SETTINGS="${HOME}/.claude/settings.json"
 HOOK=""
 MODE="install"

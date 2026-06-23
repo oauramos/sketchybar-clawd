@@ -17,6 +17,13 @@
 #     -h, --help         This help
 set -euo pipefail
 
+# Installs into the calling user's $HOME (.config/sketchybar, ~/.claude). Running
+# under sudo would create root-owned files that lock the real user out, so refuse.
+if [ "$(id -u)" -eq 0 ]; then
+  echo "install.sh: refusing to run as root — it installs into your \$HOME; run as your normal user (no sudo)." >&2
+  exit 1
+fi
+
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$SELF/src"
 
