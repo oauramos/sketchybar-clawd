@@ -22,6 +22,10 @@ Whenever **any** session is waiting on you, the whole box border glows **orange*
 vision "come back to me" alarm. The herd is sorted by start time and capped at `CLAWD_HERD_MAX`
 clawds, then collapses to a `+K` counter. Sessions appear on `SessionStart`, vanish on `SessionEnd`.
 
+With **no sessions at all**, a single neutral-white clawd just **blinks** (eyes open/closed, no
+hammer, no raised arms, no zzz) — a quiet "nobody home, start me" call to action. Tune it with
+`CLAWD_BLINK_MS`.
+
 Prefer a single mascot? Set **`CLAWD_MODE=hero`** for one clawd reflecting your *most-urgent*
 session (`waiting > error > working > idle`) plus a compact glyph strip — `○` idle, `●` working,
 `◐` waiting, `✗` error — one glyph per session.
@@ -110,6 +114,7 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:12.0` | Mascot font (glyph styles only) |
 | `CLAWD_FRAME_MS` | `150` | Working (hammer) frame interval (ms) |
 | `CLAWD_WAIT_MS` | `400` | Waiting (pulse) frame interval (ms) |
+| `CLAWD_BLINK_MS` | `200` | No-session blink frame interval (ms) — exact in `hero`; `herd` blinks on the herd tick |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box (bracket) appearance |
 | `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border color while a session is **waiting** (the "come back" alarm) |
 

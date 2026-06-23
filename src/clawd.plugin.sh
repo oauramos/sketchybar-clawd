@@ -42,6 +42,15 @@ SB="$(command -v sketchybar 2>/dev/null)" || exit 0
 ms_to_s() { awk "BEGIN { printf \"%.3f\", ${1:-150} / 1000 }" 2>/dev/null; }
 HERD_S="$(ms_to_s "$CLAWD_HERD_MS")"; [ -n "$HERD_S" ] || HERD_S="0.18"
 
+# Call-to-action blink (no sessions): a single neutral-white clawd just blinks —
+# eyes open/closed, no hammer, no raised arms, no zzz. Always the SHIPPED white
+# frames ("$DIR/frames", never recolored) so it reads as "nobody home — start me"
+# regardless of the per-state colors. Mostly-open list = a brief, natural blink.
+BLINK_OPEN="$DIR/frames/clawd-open.png"
+BLINK_CLOSED="$DIR/frames/clawd-closed.png"
+BLINK_FRAMES="$BLINK_OPEN $BLINK_OPEN $BLINK_OPEN $BLINK_OPEN $BLINK_CLOSED"
+BLINK_S="$(ms_to_s "$CLAWD_BLINK_MS")"; [ -n "$BLINK_S" ] || BLINK_S="0.2"
+
 # Set an item's image, falling back to the open frame if an image frame is
 # missing (a half-deleted recolor cache, etc.) so clawd never vanishes.
 img_set() {  # $1 item, $2 frame
@@ -77,15 +86,22 @@ if [ "${1:-}" = "__clawd_anim__" ]; then
 fi
 
 # --- herd animation worker (re-exec) -----------------------------------------
-# Advances every animated slot's two frames on a shared tick, re-reading
-# multi.state each tick so added/removed/changed slots are picked up.
+# Advances every animated slot's frames on a shared tick, re-reading multi.state
+# each tick so added/removed/changed slots are picked up. A line is
+# "<item> <frame...>" with any number of frames (≥1); the slot cycles through
+# them modulo the count — 2 frames for the hammer/pulse, more for the idle blink.
 if [ "${1:-}" = "__clawd_herd_anim__" ]; then
   _tick=0
   while :; do
     if [ -f "$MULTI" ]; then
-      while IFS=' ' read -r _it _f0 _f1; do
-        [ -n "$_it" ] || continue
-        if [ $((_tick % 2)) -eq 0 ]; then _fr="$_f0"; else _fr="$_f1"; fi
+      while IFS= read -r _line; do
+        [ -n "$_line" ] || continue
+        # shellcheck disable=SC2086
+        set -- $_line
+        _it="$1"; shift
+        { [ -n "$_it" ] && [ "$#" -gt 0 ]; } || continue
+        _sel=$((_tick % $#)); _j=0; _fr=""
+        for _f in "$@"; do [ "$_j" -eq "$_sel" ] && _fr="$_f"; _j=$((_j + 1)); done
         [ -f "$_fr" ] && "$SB" --set "$_it" background.image="$_fr" >/dev/null 2>&1
       done < "$MULTI"
     fi
@@ -161,6 +177,20 @@ hero_main() {
     total=$((total + 1))
   done
 
+  # No sessions at all (image mode): a single neutral-white clawd just blinks as
+  # a "start me" call to action — no sleep pose, no props, no status strip.
+  if [ "$total" -eq 0 ] && [ "$CLAWD_STYLE" = "image" ]; then
+    [ "${CLAWD_SHOW_DOTS:-1}" = "1" ] && "$SB" --set clawd.sessions label="" label.drawing=off >/dev/null 2>&1
+    set_border "ok"
+    if printf '%s\n%s\n' "$BLINK_S" "$BLINK_FRAMES" >"$ANIM_STATE.tmp" 2>/dev/null \
+       && mv "$ANIM_STATE.tmp" "$ANIM_STATE" 2>/dev/null; then
+      start_anim
+    else
+      stop_anim; img_set clawd "$BLINK_OPEN"
+    fi
+    return 0
+  fi
+
   if   [ "$n_wait" -gt 0 ]; then top="waiting"
   elif [ "$n_err"  -gt 0 ]; then top="error"
   elif [ "$n_work" -gt 0 ]; then top="working"
@@ -234,6 +264,8 @@ herd_main() {
     [ -n "$_hf" ] && printf 'clawd.s%s %s\n' "$_i" "$_hf" >>"$MULTI.tmp"
     _i=$((_i + 1))
   done
+  # No sessions: slot 0 becomes a blinking white call-to-action (open/closed eyes).
+  [ "$_count" -eq 0 ] && printf 'clawd.s0 %s\n' "$BLINK_FRAMES" >>"$MULTI.tmp"
   mv "$MULTI.tmp" "$MULTI" 2>/dev/null
 
   # Pass 2: set each visible slot's pose + show it.
@@ -246,9 +278,10 @@ herd_main() {
     "$SB" --set "clawd.s$_i" drawing=on >/dev/null 2>&1
     _i=$((_i + 1))
   done
-  # no sessions at all -> show one sleeping clawd rather than an empty box
+  # no sessions at all -> one white clawd blinking (call to action) — the worker
+  # cycles its frames (manifest written above); seed the open frame + show it.
   if [ "$_count" -eq 0 ]; then
-    img_set clawd.s0 "$CLAWD_F_SLEEP"; "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
+    img_set clawd.s0 "$BLINK_OPEN"; "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
   fi
   while [ "$_i" -lt "$CLAWD_HERD_MAX" ]; do "$SB" --set "clawd.s$_i" drawing=off >/dev/null 2>&1; _i=$((_i + 1)); done
 

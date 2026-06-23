@@ -74,6 +74,9 @@ clawd_anim() {
 #     CLAWD_DEAD_COLOR   "dead"/error sprite color (default 7b7d7b)
 #     CLAWD_FRAME_MS     working (hammer) frame interval ms (default 150)
 #     CLAWD_WAIT_MS      waiting (pulse) frame interval ms (default 400)
+#     CLAWD_BLINK_MS     no-session blink frame interval ms (default 200). With no
+#                        sessions a single neutral-white clawd just blinks (eyes
+#                        open/closed, no props) as a "start me" call to action.
 #     CLAWD_ICON_FONT    mascot font (glyph styles only)
 #   Per-session status strip (one glyph per running Claude Code session):
 #     CLAWD_SHOW_DOTS    1 (default) | 0 (mascot only)
@@ -115,6 +118,7 @@ clawd_load_config() {
   CLAWD_ICON_FONT="${CLAWD_ICON_FONT:-Hack Nerd Font:Bold:12.0}"
   CLAWD_FRAME_MS="${CLAWD_FRAME_MS:-150}"
   CLAWD_WAIT_MS="${CLAWD_WAIT_MS:-400}"
+  CLAWD_BLINK_MS="${CLAWD_BLINK_MS:-200}"   # no-session "call to action" blink frame interval (ms)
 
   # per-session status strip
   CLAWD_SHOW_DOTS="${CLAWD_SHOW_DOTS:-1}"
