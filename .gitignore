@@ -1,2 +1,3 @@
 .DS_Store
 *.clawd-bak.*
+__pycache__/

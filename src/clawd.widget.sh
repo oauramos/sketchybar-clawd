@@ -23,37 +23,61 @@ clawd_load_config
 _clawd_state="$(clawd_state_dir)"
 mkdir -p "$_clawd_state" "$(clawd_sessions_dir)"
 
-# Recolor the sprite to CLAWD_COLOR (image mode). Shipped frames are the neutral
-# default; any other color is rendered once by the bundled generator into a cached
-# per-color dir (needs python3). Falls back to the shipped frames otherwise.
-_want="$(printf '%s' "$CLAWD_COLOR" | tr '[:upper:]' '[:lower:]')"
-_want_dead="$(printf '%s' "$CLAWD_DEAD_COLOR" | tr '[:upper:]' '[:lower:]')"
-if [ "$CLAWD_STYLE" = "image" ] && { [ "$_want" != "$CLAWD_SHIPPED_COLOR" ] || [ "$_want_dead" != "$CLAWD_SHIPPED_DEAD" ]; }; then
+# Recolor the sprite per state (image mode). Each distinct color is rendered once
+# by the bundled generator into a cached dir keyed by color + dead-color + art
+# version (so sprite-art changes bust the cache). Needs python3; otherwise the
+# shipped neutral frames are used. CLAWD_DIR_WORK/IDLE/WAIT feed clawd_load_config.
+if [ "$CLAWD_STYLE" = "image" ]; then
   _gen=""
   for _c in "$CLAWD_DIR/gen-clawd.py" "$CLAWD_DIR/../tools/gen-clawd.py"; do
     [ -f "$_c" ] && { _gen="$_c"; break; }
   done
   _py="$(PATH="/usr/bin:$PATH" command -v python3 2>/dev/null || true)"
-  _cdir="$_clawd_state/frames-$CLAWD_COLOR-$CLAWD_DEAD_COLOR"
-  if [ -n "$_gen" ] && [ -n "$_py" ]; then
-    [ -f "$_cdir/clawd-open.png" ] || "$_py" "$_gen" --out "$_cdir" \
-      --color "$CLAWD_COLOR" --dead-color "$CLAWD_DEAD_COLOR" >/dev/null 2>&1
-    [ -f "$_cdir/clawd-open.png" ] && CLAWD_FRAMES_DIR="$_cdir"
-  fi
+  _dead="$(printf '%s' "$CLAWD_DEAD_COLOR" | tr '[:upper:]' '[:lower:]')"
+
+  # Echo a frames dir holding all poses in $1 (RRGGBB); generate+cache if needed.
+  _frames_for() {
+    _col="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+    if [ "$_col" = "$CLAWD_SHIPPED_COLOR" ] && [ "$_dead" = "$CLAWD_SHIPPED_DEAD" ]; then
+      printf '%s' "$CLAWD_FRAMES_DIR"; return    # shipped neutral default
+    fi
+    _cdir="$_clawd_state/frames-$_col-$_dead-v$CLAWD_ART_VER"
+    if [ -n "$_gen" ] && [ -n "$_py" ] && [ ! -f "$_cdir/.complete" ]; then
+      "$_py" "$_gen" --out "$_cdir" --color "$_col" --dead-color "$_dead" >/dev/null 2>&1 \
+        && touch "$_cdir/.complete"
+    fi
+    if [ -f "$_cdir/.complete" ]; then printf '%s' "$_cdir"; else printf '%s' "$CLAWD_FRAMES_DIR"; fi
+  }
+
+  CLAWD_DIR_WORK="$(_frames_for "$CLAWD_COLOR_WORK")"
+  CLAWD_DIR_IDLE="$(_frames_for "$CLAWD_COLOR_IDLE")"
+  CLAWD_DIR_WAIT="$(_frames_for "$CLAWD_COLOR_WAIT")"
+  CLAWD_FRAMES_DIR="$CLAWD_DIR_WAIT"             # single-dir fallback / hero default
   clawd_load_config
 fi
 
 # Persist resolved config for the daemon-spawned plugin (rc exports don't reach it).
 {
   echo "CLAWD_STYLE=$CLAWD_STYLE"
+  echo "CLAWD_MODE=$CLAWD_MODE"
+  echo "CLAWD_HERD_MAX=$CLAWD_HERD_MAX"
+  echo "CLAWD_HERD_MS=$CLAWD_HERD_MS"
   echo "CLAWD_FG=$CLAWD_FG"
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
+  echo "CLAWD_WAIT_MS=$CLAWD_WAIT_MS"
   echo "CLAWD_FRAMES_DIR=$CLAWD_FRAMES_DIR"
+  echo "CLAWD_DIR_WORK=${CLAWD_DIR_WORK:-$CLAWD_FRAMES_DIR}"
+  echo "CLAWD_DIR_IDLE=${CLAWD_DIR_IDLE:-$CLAWD_FRAMES_DIR}"
+  echo "CLAWD_DIR_WAIT=${CLAWD_DIR_WAIT:-$CLAWD_FRAMES_DIR}"
   echo "CLAWD_SHOW_DOTS=$CLAWD_SHOW_DOTS"
   echo "CLAWD_DOT_IDLE=$CLAWD_DOT_IDLE"
   echo "CLAWD_DOT_WORK=$CLAWD_DOT_WORK"
   echo "CLAWD_DOT_WAIT=$CLAWD_DOT_WAIT"
+  echo "CLAWD_DOT_ERR=$CLAWD_DOT_ERR"
   echo "CLAWD_DOT_SEP=$CLAWD_DOT_SEP"
+  echo "CLAWD_STRIP_MAX=$CLAWD_STRIP_MAX"
+  echo "CLAWD_BORDER=$CLAWD_BORDER"
+  echo "CLAWD_BORDER_WAIT=$CLAWD_BORDER_WAIT"
   echo "CLAWD_SESSION_TTL=$CLAWD_SESSION_TTL"
 } >"$_clawd_state/clawd.env"
 
@@ -84,18 +108,58 @@ _add_dots() {
                          label.padding_left=4 label.padding_right=8
 }
 
+# --- herd mode: a fixed pool of slot items + an overflow counter -------------
+_add_slot() {  # $1 = slot index
+  sketchybar --add item "clawd.s$1" "$_pos" \
+    --set "clawd.s$1" background.image="$CLAWD_F_SLEEP" background.image.scale="$CLAWD_IMG_SCALE" \
+                      background.image.drawing=on background.color=0x00000000 \
+                      icon.drawing=off label.drawing=off \
+                      width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" drawing=off
+}
+_add_more() {
+  sketchybar --add item clawd.more "$_pos" \
+    --set clawd.more icon.drawing=off label="" label.drawing=off \
+                     label.font="$CLAWD_DOT_FONT" label.color="$CLAWD_DOT_COLOR" \
+                     label.padding_left=4 label.padding_right=8 drawing=off
+}
+_add_herd() {
+  # invisible driver: always processes claude_state and manages the slots
+  sketchybar --add item clawd "$_pos" \
+    --set clawd drawing=off width=0 updates=on icon.drawing=off label.drawing=off \
+                background.drawing=off script="$_plugin" \
+    --subscribe clawd claude_state
+  # Slot order: right side lays out right-to-left, so add overflow + high indices
+  # first to keep visual order s0,s1,…,+K from left to right.
+  if [ "$_pos" = "right" ]; then
+    _add_more
+    _k=$((CLAWD_HERD_MAX - 1)); while [ "$_k" -ge 0 ]; do _add_slot "$_k"; _k=$((_k - 1)); done
+  else
+    _k=0; while [ "$_k" -lt "$CLAWD_HERD_MAX" ]; do _add_slot "$_k"; _k=$((_k + 1)); done
+    _add_more
+  fi
+}
+
 sketchybar --add event claude_state
 
-# visual order, left -> right: [clawd] [dots]. Right side lays out right-to-left.
-if [ "$_pos" = "right" ]; then
-  [ "$CLAWD_SHOW_DOTS" = "1" ] && _add_dots
-  _add_mascot
+if [ "$CLAWD_MODE" = "herd" ] && [ "$CLAWD_STYLE" = "image" ]; then
+  _add_herd
+  # explicit member list (sketchybar's regex doesn't do alternation)
+  _box_members="clawd.more"
+  _k=0; while [ "$_k" -lt "$CLAWD_HERD_MAX" ]; do _box_members="clawd.s$_k $_box_members"; _k=$((_k + 1)); done
 else
-  _add_mascot
-  [ "$CLAWD_SHOW_DOTS" = "1" ] && _add_dots
+  # hero — visual order left -> right: [clawd] [dots]. Right lays out right-to-left.
+  if [ "$_pos" = "right" ]; then
+    [ "$CLAWD_SHOW_DOTS" = "1" ] && _add_dots
+    _add_mascot
+  else
+    _add_mascot
+    [ "$CLAWD_SHOW_DOTS" = "1" ] && _add_dots
+  fi
+  _box_members="clawd /clawd\..*/"
 fi
 
-sketchybar --add bracket clawd_box clawd '/clawd\..*/' \
+# shellcheck disable=SC2086
+sketchybar --add bracket clawd_box $_box_members \
   --set clawd_box background.color="$CLAWD_BG" background.border_color="$CLAWD_BORDER" \
                   background.border_width="$CLAWD_BORDER_WIDTH" \
                   background.corner_radius="$CLAWD_RADIUS" background.height="$CLAWD_HEIGHT"

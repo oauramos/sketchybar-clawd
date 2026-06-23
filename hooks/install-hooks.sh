@@ -65,7 +65,7 @@ if [ "$MODE" = "install" ]; then
     | .hooks.SessionStart     = (strip(\"SessionStart\")     + [{hooks:[{type:\"command\", command:(\$hook+\" start\")}]}])
     | .hooks.UserPromptSubmit = (strip(\"UserPromptSubmit\") + [{hooks:[{type:\"command\", command:(\$hook+\" working\")}]}])
     | .hooks.Stop             = (strip(\"Stop\")             + [{hooks:[{type:\"command\", command:(\$hook+\" idle\")}]}])
-    | .hooks.StopFailure      = (strip(\"StopFailure\")      + [{hooks:[{type:\"command\", command:(\$hook+\" idle\")}]}])
+    | .hooks.StopFailure      = (strip(\"StopFailure\")      + [{hooks:[{type:\"command\", command:(\$hook+\" error\")}]}])
     | .hooks.Notification     = (strip(\"Notification\")     + [{matcher:\"\", hooks:[{type:\"command\", command:(\$hook+\" notification\")}]}])
     | .hooks.SessionEnd       = (strip(\"SessionEnd\")       + [{hooks:[{type:\"command\", command:(\$hook+\" end\")}]}])
   " "$SETTINGS" >"$tmp"

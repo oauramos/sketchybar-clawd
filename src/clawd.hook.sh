@@ -8,7 +8,8 @@
 # Wire it (see hooks/install-hooks.sh) as:
 #   SessionStart    -> clawd.hook.sh start
 #   UserPromptSubmit-> clawd.hook.sh working
-#   Stop / StopFailure -> clawd.hook.sh idle
+#   Stop            -> clawd.hook.sh idle
+#   StopFailure     -> clawd.hook.sh error    (API error -> clawd keels over)
 #   Notification    -> clawd.hook.sh notification   (reads .type)
 #   SessionEnd      -> clawd.hook.sh end
 #
@@ -30,6 +31,7 @@ case "${1:-}" in
   start | idle) printf 'idle' >"$SESS/$sid" ;;
   working) printf 'working' >"$SESS/$sid" ;;
   waiting) printf 'waiting' >"$SESS/$sid" ;;
+  error) printf 'error' >"$SESS/$sid" ;;
   notification)
     type="$(printf '%s' "$json" | jq -r '.type // empty' 2>/dev/null)"
     case "$type" in

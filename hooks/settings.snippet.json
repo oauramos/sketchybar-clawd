@@ -11,7 +11,7 @@
       { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh idle" } ] }
     ],
     "StopFailure": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh idle" } ] }
+      { "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh error" } ] }
     ],
     "Notification": [
       { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.config/sketchybar/clawd/clawd.hook.sh notification" } ] }
