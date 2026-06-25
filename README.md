@@ -14,7 +14,7 @@ Each clawd plays its session's state — and can be colored per state:
 | clawd | State | When |
 |-------|-------|------|
 | 🔨 **hammers** (orange) | **working** | from the moment you submit a prompt until the turn ends |
-| ✋ **arms up, pulsing** (white) | **waiting** | the session needs you — a permission prompt or dialog |
+| ❓ **open-eyed + a "?" badge** (white) | **waiting** | the session needs you — a permission prompt or dialog |
 | 💤 **asleep, `-_-` + zzz** (gray) | **idle** | at rest / the turn finished |
 | 💀 **keels over, X-eyes** | **error** | the turn ended in an API error (`StopFailure`) |
 
@@ -113,8 +113,8 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_FG` | `0xfff5f5f7` | Foreground/accent color |
 | `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:12.0` | Mascot font (glyph styles only) |
 | `CLAWD_FRAME_MS` | `150` | Working (hammer) frame interval (ms) |
-| `CLAWD_WAIT_MS` | `400` | Waiting (pulse) frame interval (ms) |
 | `CLAWD_BLINK_MS` | `200` | No-session blink frame interval (ms) — exact in `hero`; `herd` blinks on the herd tick |
+| `CLAWD_ASK_GLYPH` / `CLAWD_ASK_COLOR` / `CLAWD_ASK_FONT` / `CLAWD_ASK_YOFF` | `?` / `$CLAWD_FG` / `Hack Nerd Font:Bold:9.0` / `5` | Waiting "?" badge over the mascot's top-right |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box (bracket) appearance |
 | `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border color while a session is **waiting** (the "come back" alarm) |
 
@@ -141,7 +141,7 @@ Example — color-code the states (orange working, gray idle, white waiting):
 ```sh
 export CLAWD_COLOR_WORK=ef7139   # the Claude-orange clawd, hammering
 export CLAWD_COLOR_IDLE=888888   # dim gray, asleep
-export CLAWD_COLOR_WAIT=f5f5f7   # white, arms up
+export CLAWD_COLOR_WAIT=f5f5f7   # white, with a "?" badge
 source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
 
@@ -154,8 +154,9 @@ for the classic Claude orange).
 
 The sprite is an 18×6 pixel-art clawd (rounded head, two eyes, four feet, plus a one-row prop
 band on top) rendered to one PNG per pose: `clawd-open` / `clawd-closed` (blink), `clawd-dead`
-(error, X-eyes), `clawd-hammer-up` / `clawd-hammer-down` (working), `clawd-wait` / `clawd-wait-dim`
-(waiting pulse), and `clawd-sleep` (idle — `-_-` dashed eyes + a rising `zzz`). To recolor or
+(error, X-eyes), `clawd-hammer-up` / `clawd-hammer-down` (working), `clawd-wait`
+(waiting — a plain open-eyed body; the widget overlays a "?" badge), and `clawd-sleep`
+(idle — `-_-` dashed eyes + a rising `zzz`). To recolor or
 resize them, regenerate every pose with the bundled generator (pure Python 3, no dependencies):
 
 ```sh
@@ -197,8 +198,9 @@ Remove the hooks: `hooks/install-hooks.sh --remove`.
     start time, capped at `CLAWD_HERD_MAX` then `+K`), each set to its session's pose/color.
   - **hero**: tallies the states, picks the single most-urgent one (`waiting > error > working >
     idle`) for the mascot, and writes the urgency-sorted glyph strip on the `clawd.sessions` label.
-  - Either way it paints the `clawd_box` border orange whenever any session is waiting.
-- Animated poses (working / waiting) are played by a small background worker that swaps
+  - Either way it paints the `clawd_box` border orange whenever any session is waiting, and overlays
+    a "?" badge (an item label) on each waiting clawd.
+- The animated pose (working) is played by a small background worker that swaps
   `background.image` between frames — a worker is used because SketchyBar's `update_freq` is
   whole-second, too coarse for smooth motion. The hero worker re-reads `anim.state` each frame; the
   herd worker advances every animated clawd on a shared tick from `multi.state`. Workers are tracked

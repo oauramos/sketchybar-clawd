@@ -73,11 +73,15 @@ clawd_anim() {
 #                        (each defaults to CLAWD_COLOR; e.g. orange working, gray idle)
 #     CLAWD_DEAD_COLOR   "dead"/error sprite color (default 7b7d7b)
 #     CLAWD_FRAME_MS     working (hammer) frame interval ms (default 150)
-#     CLAWD_WAIT_MS      waiting (pulse) frame interval ms (default 400)
 #     CLAWD_BLINK_MS     no-session blink frame interval ms (default 200). With no
 #                        sessions a single neutral-white clawd just blinks (eyes
 #                        open/closed, no props) as a "start me" call to action.
 #     CLAWD_ICON_FONT    mascot font (glyph styles only)
+#   Waiting "?" badge (a session is waiting on you -> a "?" over its top-right):
+#     CLAWD_ASK_GLYPH    badge text (default "?")
+#     CLAWD_ASK_COLOR    badge color (default CLAWD_FG / near-white)
+#     CLAWD_ASK_FONT     badge font   (default small bold)
+#     CLAWD_ASK_YOFF     badge vertical nudge, +up (default 5)
 #   Per-session status strip (one glyph per running Claude Code session):
 #     CLAWD_SHOW_DOTS    1 (default) | 0 (mascot only)
 #     CLAWD_DOT_IDLE / CLAWD_DOT_WORK / CLAWD_DOT_WAIT / CLAWD_DOT_ERR  glyphs (○ ● ◐ ✗)
@@ -114,11 +118,16 @@ clawd_load_config() {
   CLAWD_COLOR_WORK="${CLAWD_COLOR_WORK:-$CLAWD_COLOR}"
   CLAWD_COLOR_IDLE="${CLAWD_COLOR_IDLE:-$CLAWD_COLOR}"
   CLAWD_COLOR_WAIT="${CLAWD_COLOR_WAIT:-$CLAWD_COLOR}"
-  CLAWD_ART_VER="3"   # bump when gen-clawd.py art changes, to bust recolor caches
+  CLAWD_ART_VER="5"   # bump when gen-clawd.py art changes, to bust recolor caches
   CLAWD_ICON_FONT="${CLAWD_ICON_FONT:-Hack Nerd Font:Bold:12.0}"
   CLAWD_FRAME_MS="${CLAWD_FRAME_MS:-150}"
-  CLAWD_WAIT_MS="${CLAWD_WAIT_MS:-400}"
   CLAWD_BLINK_MS="${CLAWD_BLINK_MS:-200}"   # no-session "call to action" blink frame interval (ms)
+
+  # Waiting "?" badge (overlaid as the mascot/slot label on a waiting session).
+  CLAWD_ASK_GLYPH="${CLAWD_ASK_GLYPH:-?}"
+  CLAWD_ASK_COLOR="${CLAWD_ASK_COLOR:-$CLAWD_FG}"    # near-white, matches the mascot
+  CLAWD_ASK_FONT="${CLAWD_ASK_FONT:-Hack Nerd Font:Bold:9.0}"
+  CLAWD_ASK_YOFF="${CLAWD_ASK_YOFF:-5}"             # +up; small gap below the top border
 
   # per-session status strip
   CLAWD_SHOW_DOTS="${CLAWD_SHOW_DOTS:-1}"
@@ -161,7 +170,7 @@ clawd_load_config() {
       CLAWD_F_OPEN="$_td/clawd-open.png";   CLAWD_F_CLOSED="$_wd/clawd-closed.png"
       CLAWD_F_DEAD="$_id/clawd-dead.png";   CLAWD_F_SLEEP="$_id/clawd-sleep.png"
       CLAWD_F_HUP="$_wd/clawd-hammer-up.png"; CLAWD_F_HDOWN="$_wd/clawd-hammer-down.png"
-      CLAWD_F_WAIT="$_td/clawd-wait.png";   CLAWD_F_WAITDIM="$_td/clawd-wait-dim.png"
+      CLAWD_F_WAIT="$_td/clawd-wait.png"
       CLAWD_IDLE="$CLAWD_F_SLEEP"          # idle hero = curled asleep
       CLAWD_WAIT="$CLAWD_F_WAIT"; CLAWD_DEAD="$CLAWD_F_DEAD"
       CLAWD_WORK="$CLAWD_F_HUP $CLAWD_F_HDOWN" ;;
@@ -171,7 +180,7 @@ clawd_load_config() {
   if [ "$CLAWD_STYLE" = "image" ]; then
     CLAWD_ANIM_IDLE="0 $CLAWD_F_SLEEP"
     CLAWD_ANIM_WORK="$CLAWD_FRAME_MS $CLAWD_F_HUP $CLAWD_F_HDOWN"
-    CLAWD_ANIM_WAIT="$CLAWD_WAIT_MS $CLAWD_F_WAIT $CLAWD_F_WAITDIM"
+    CLAWD_ANIM_WAIT="0 $CLAWD_F_WAIT"
     CLAWD_ANIM_ERROR="0 $CLAWD_F_DEAD"
   else
     CLAWD_ANIM_IDLE="0 $CLAWD_IDLE"

@@ -4,7 +4,7 @@
 # Runs on the forced initial load and on every `claude_state` event, reads the
 # per-session state store, and renders one of two layouts (CLAWD_MODE):
 #   herd  — one clawd PER session, each acting out its own state (hammering,
-#           arm-up pulsing, dead, asleep), capped at CLAWD_HERD_MAX then "+K".
+#           arm-up waving, dead, asleep), capped at CLAWD_HERD_MAX then "+K".
 #   hero  — a single mascot reflecting the most-urgent session, plus a glyph
 #           strip with one glyph per session, urgency-sorted and capped.
 # Either way the box border turns orange while any session is waiting on you.
@@ -89,7 +89,7 @@ fi
 # Advances every animated slot's frames on a shared tick, re-reading multi.state
 # each tick so added/removed/changed slots are picked up. A line is
 # "<item> <frame...>" with any number of frames (≥1); the slot cycles through
-# them modulo the count — 2 frames for the hammer/pulse, more for the idle blink.
+# them modulo the count — 2 frames for the hammer/wave, more for the idle blink.
 if [ "${1:-}" = "__clawd_herd_anim__" ]; then
   _tick=0
   while :; do
@@ -147,14 +147,29 @@ set_border() {  # orange while $1 == waiting, else normal
   "$SB" --set "$BOX" background.border_color="$_bc" >/dev/null 2>&1
 }
 
+# Overlay the "?" badge label on a waiting item, clear it otherwise. Font/color/
+# position are baked in at item creation (clawd.widget.sh); we only toggle text.
+set_ask() {  # $1 item, $2 state
+  if [ "$2" = "waiting" ]; then
+    "$SB" --set "$1" label="$CLAWD_ASK_GLYPH" label.drawing=on >/dev/null 2>&1
+  else
+    "$SB" --set "$1" label.drawing=off >/dev/null 2>&1
+  fi
+}
+
 # per-state frames for a herd slot: animated states echo "f0 f1", else empty
 herd_frames() {
   case "$1" in
     working) printf '%s %s' "$CLAWD_F_HUP" "$CLAWD_F_HDOWN" ;;
-    waiting) printf '%s %s' "$CLAWD_F_WAIT" "$CLAWD_F_WAITDIM" ;;
   esac
 }
-herd_static() { case "$1" in error) printf '%s' "$CLAWD_F_DEAD" ;; *) printf '%s' "$CLAWD_F_SLEEP" ;; esac; }
+herd_static() {
+  case "$1" in
+    error)   printf '%s' "$CLAWD_F_DEAD" ;;
+    waiting) printf '%s' "$CLAWD_F_WAIT" ;;   # alert open body; "?" badge added separately
+    *)       printf '%s' "$CLAWD_F_SLEEP" ;;
+  esac
+}
 
 now="$(date +%s)"
 
@@ -181,7 +196,7 @@ hero_main() {
   # a "start me" call to action — no sleep pose, no props, no status strip.
   if [ "$total" -eq 0 ] && [ "$CLAWD_STYLE" = "image" ]; then
     [ "${CLAWD_SHOW_DOTS:-1}" = "1" ] && "$SB" --set clawd.sessions label="" label.drawing=off >/dev/null 2>&1
-    set_border "ok"
+    set_border "ok"; set_ask clawd "ok"
     if printf '%s\n%s\n' "$BLINK_S" "$BLINK_FRAMES" >"$ANIM_STATE.tmp" 2>/dev/null \
        && mv "$ANIM_STATE.tmp" "$ANIM_STATE" 2>/dev/null; then
       start_anim
@@ -217,7 +232,7 @@ hero_main() {
     "$SB" --set clawd.sessions label="$STRIP_OUT" label.drawing=on >/dev/null 2>&1
   fi
 
-  set_border "$top"
+  set_border "$top"; set_ask clawd "$top"
 
   anim="$(clawd_anim "$top")"           # "<interval_ms> <frame...>"
   int_ms="${anim%% *}"; frames="${anim#* }"
@@ -275,13 +290,15 @@ herd_main() {
     _st="$(cat "$f" 2>/dev/null)"; _hf="$(herd_frames "$_st")"
     if [ -n "$_hf" ]; then img_set "clawd.s$_i" "${_hf%% *}"
     else img_set "clawd.s$_i" "$(herd_static "$_st")"; fi
+    set_ask "clawd.s$_i" "$_st"
     "$SB" --set "clawd.s$_i" drawing=on >/dev/null 2>&1
     _i=$((_i + 1))
   done
   # no sessions at all -> one white clawd blinking (call to action) — the worker
   # cycles its frames (manifest written above); seed the open frame + show it.
   if [ "$_count" -eq 0 ]; then
-    img_set clawd.s0 "$BLINK_OPEN"; "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
+    img_set clawd.s0 "$BLINK_OPEN"; set_ask clawd.s0 "ok"
+    "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
   fi
   while [ "$_i" -lt "$CLAWD_HERD_MAX" ]; do "$SB" --set "clawd.s$_i" drawing=off >/dev/null 2>&1; _i=$((_i + 1)); done
 

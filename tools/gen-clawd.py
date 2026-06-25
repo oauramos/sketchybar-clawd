@@ -9,12 +9,13 @@ Blink = fill the eye gaps. "dead" = gray with X eyes.
 State poses (for the per-session "hero" mascot) add a one-row prop band ABOVE
 the body, so the canvas is 18x6 (body occupies rows 1..5, row 0 is props):
   hammer-up / hammer-down  a 2x2 mallet head that travels top->bottom (working)
-  wait / wait-dim          both arms thrown up; -dim is the dimmer pulse frame
+  wait                     plain open-eyed body, alert and looking at you; the
+                           widget overlays a small "?" badge (waiting on you)
   sleep                    eyes shut + a rising "zzz" trail (idle)
 
 Outputs (transparent background) — by default every pose:
   clawd-open, clawd-closed, clawd-dead, clawd-hammer-up, clawd-hammer-down,
-  clawd-wait, clawd-wait-dim, clawd-sleep  (all .png).
+  clawd-wait, clawd-sleep  (all .png).
 Pure standard library (zlib) — no Pillow required.
 
 Usage:
@@ -38,7 +39,7 @@ EYE_COLS = (5, 12)
 W_BITS, GRID_H = 18, 6
 BODY_Y = 1                     # body's top row in the 6-row grid
 EYE_GRID_Y = BODY_Y + 1        # eyes live on body row 1 -> grid row 2
-DIM_ALPHA = 110                # the "-dim" pulse frame
+DIM_ALPHA = 110                # alpha for any pose flagged {"dim": True} (optional)
 
 # Per-pose prop pixels as (col, grid_row), eye state, and flags.
 POSES = {
@@ -49,9 +50,9 @@ POSES = {
     "hammer-up":   {"shut": False, "props": [(15, 0), (16, 0), (15, 1), (16, 1), (15, 2)]},
     # mallet head down by the feet + a spark recoil up high
     "hammer-down": {"shut": False, "props": [(15, 4), (16, 4), (15, 5), (16, 5), (16, 2)]},
-    # both arms thrown up: "come back!"
-    "wait":        {"shut": False, "props": [(3, 0), (4, 0), (13, 0), (14, 0)]},
-    "wait-dim":    {"shut": False, "props": [(3, 0), (4, 0), (13, 0), (14, 0)], "dim": True},
+    # waiting on you: just an alert, open-eyed body (no props). The widget paints
+    # a small "?" badge over the top-right corner, so the sprite stays clean.
+    "wait":        {"shut": False, "props": []},
     # dashed "-_-" eyes + a rising zzz trail
     "sleep":       {"shut": True,  "dash": True, "props": [(14, 3), (15, 2), (16, 1), (17, 0)]},
 }

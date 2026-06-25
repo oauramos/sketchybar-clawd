@@ -64,8 +64,8 @@ fi
   echo "CLAWD_HERD_MS=$CLAWD_HERD_MS"
   echo "CLAWD_FG=$CLAWD_FG"
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
-  echo "CLAWD_WAIT_MS=$CLAWD_WAIT_MS"
   echo "CLAWD_BLINK_MS=$CLAWD_BLINK_MS"
+  echo "CLAWD_ASK_GLYPH=$CLAWD_ASK_GLYPH"
   echo "CLAWD_FRAMES_DIR=$CLAWD_FRAMES_DIR"
   echo "CLAWD_DIR_WORK=${CLAWD_DIR_WORK:-$CLAWD_FRAMES_DIR}"
   echo "CLAWD_DIR_IDLE=${CLAWD_DIR_IDLE:-$CLAWD_FRAMES_DIR}"
@@ -90,7 +90,10 @@ _add_mascot() {
     sketchybar --add item clawd "$_pos" \
       --set clawd background.image="$CLAWD_IDLE" background.image.scale="$CLAWD_IMG_SCALE" \
                   background.image.drawing=on background.color=0x00000000 \
-                  icon.drawing=off label.drawing=off \
+                  icon.drawing=off \
+                  label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
+                  label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
+                  label.padding_right=3 label.drawing=off \
                   width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" \
                   script="$_plugin" \
       --subscribe clawd claude_state
@@ -114,7 +117,10 @@ _add_slot() {  # $1 = slot index
   sketchybar --add item "clawd.s$1" "$_pos" \
     --set "clawd.s$1" background.image="$CLAWD_F_SLEEP" background.image.scale="$CLAWD_IMG_SCALE" \
                       background.image.drawing=on background.color=0x00000000 \
-                      icon.drawing=off label.drawing=off \
+                      icon.drawing=off \
+                      label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
+                      label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
+                      label.padding_right=3 label.drawing=off \
                       width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" drawing=off
 }
 _add_more() {
