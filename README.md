@@ -13,10 +13,16 @@ Each clawd plays its session's state — and can be colored per state:
 
 | clawd | State | When |
 |-------|-------|------|
-| 🔨 **hammers** (orange) | **working** | from the moment you submit a prompt until the turn ends |
+| 🔨 **hammers** (orange) | **working** | from the moment you submit a prompt until the turn ends — including while its subagents are still running |
+| 🔢 **a count over the head** | **N agents** | N subagents running for that session (`SubagentStart` → `SubagentStop`) |
 | ❓ **open-eyed + a "?" badge** (white) | **waiting** | the session needs you — a permission prompt or dialog |
 | 💤 **asleep, `-_-` + zzz** (gray) | **idle** | at rest / the turn finished |
 | 💀 **keels over, X-eyes** | **error** | the turn ended in an API error (`StopFailure`) |
+
+A session running **subagents** (`/agents`, the Task tool) wears the number of live agents as a
+badge over its clawd's head — `2` means two agents are off working for it, `9+` past
+`CLAWD_AGENT_MAX`. Claude Code's `Stop` hook fires *before* its subagents finish, so a session with
+agents in flight keeps hammering instead of dropping to `idle` — the badge and the pose agree.
 
 Whenever **any** session is waiting on you, the whole box border glows **orange** — a peripheral-
 vision "come back to me" alarm. The herd is sorted by start time and capped at `CLAWD_HERD_MAX`
@@ -115,6 +121,10 @@ Export any of these **before** the `source` line in your `sketchybarrc`:
 | `CLAWD_FRAME_MS` | `150` | Working (hammer) frame interval (ms) |
 | `CLAWD_BLINK_MS` | `200` | No-session blink frame interval (ms) — exact in `hero`; `herd` blinks on the herd tick |
 | `CLAWD_ASK_GLYPH` / `CLAWD_ASK_COLOR` / `CLAWD_ASK_FONT` / `CLAWD_ASK_YOFF` | `?` / `$CLAWD_FG` / `Hack Nerd Font:Bold:9.0` / `5` | Waiting "?" badge over the mascot's top-right |
+| `CLAWD_SHOW_AGENTS` | `1` | Badge the running-subagent count over the clawd's head (`0` = never) |
+| `CLAWD_AGENT_COLOR` / `CLAWD_AGENT_FONT` / `CLAWD_AGENT_YOFF` | `$CLAWD_ASK_*` | Agent-count badge color / font / vertical nudge (raise it for a small sprite, e.g. `7`) |
+| `CLAWD_AGENT_MAX` | `9` | Counts above this render as `9+` |
+| `CLAWD_AGENT_TTL` | `3600` | Forget an agent whose `SubagentStop` never arrived, after N seconds |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box (bracket) appearance |
 | `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border color while a session is **waiting** (the "come back" alarm) |
 
@@ -180,10 +190,14 @@ Each hook carries a `session_id` on stdin, so a session is tracked individually:
 | `Stop` | Turn finishes | `idle` |
 | `StopFailure` | Turn ends in an API error | `error` (clawd keels over) |
 | `Notification` | `permission_prompt` / `elicitation_dialog` → `waiting`; `idle_prompt` → `idle` | `waiting` / `idle` |
+| `SubagentStart` | A subagent spawns | agent count +1 (badge) |
+| `SubagentStop` | A subagent finishes | agent count −1 |
 | `SessionEnd` | A session ends | glyph removed |
 
 `working` starts at `UserPromptSubmit` (not `PreToolUse`) so the hero reacts the instant
-you hit enter, even on text-only replies. See `hooks/settings.snippet.json` for the raw block
+you hit enter, even on text-only replies. The subagent hooks carry the **parent** `session_id`
+(plus a stable `agent_id`), so agents badge the clawd that spawned them; a Claude Code old enough
+not to emit `SubagentStart` simply never shows the badge — everything else works unchanged. See `hooks/settings.snippet.json` for the raw block
 if you'd rather paste it by hand.
 
 Install for a single project instead of globally: `hooks/install-hooks.sh --project`.
@@ -193,20 +207,28 @@ Remove the hooks: `hooks/install-hooks.sh --remove`.
 
 - Each hook calls `clawd.hook.sh`, which records that session's state in
   `~/.cache/sketchybar-clawd/sessions/<session_id>` and fires the `claude_state` event.
+- Subagents get their own registry: one empty file per live agent at
+  `~/.cache/sketchybar-clawd/agents/<session_id>/<agent_id>`, created on `SubagentStart` and
+  removed on `SubagentStop` — so the file count *is* the badge. It's rebuilt from scratch on
+  `SessionStart` (except after a compaction, where agents may still be running) and dropped on
+  `SessionEnd`, so a crash can't leave a phantom count behind.
 - On that event `clawd.plugin.sh` reads every session file and renders one of two layouts:
   - **herd** (default): a fixed pool of slot items (`clawd.s0…`), one shown per session (sorted by
     start time, capped at `CLAWD_HERD_MAX` then `+K`), each set to its session's pose/color.
   - **hero**: tallies the states, picks the single most-urgent one (`waiting > error > working >
     idle`) for the mascot, and writes the urgency-sorted glyph strip on the `clawd.sessions` label.
   - Either way it paints the `clawd_box` border orange whenever any session is waiting, and overlays
-    a "?" badge (an item label) on each waiting clawd.
+    up to two badges per clawd: the running-agent count (the item's `icon`, top-left) and a "?" on a
+    waiting one (the item's `label`, top-right). Glyph styles spend the `icon` on the mascot itself,
+    so there the two share the label (`?2`).
 - The animated pose (working) is played by a small background worker that swaps
   `background.image` between frames — a worker is used because SketchyBar's `update_freq` is
   whole-second, too coarse for smooth motion. The hero worker re-reads `anim.state` each frame; the
   herd worker advances every animated clawd on a shared tick from `multi.state`. Workers are tracked
   by PID files (with a command-line guard against PID reuse) and stopped when nothing is animating.
 - If a session is killed without `SessionEnd` firing, its file is pruned after
-  `CLAWD_SESSION_TTL` as a safety net.
+  `CLAWD_SESSION_TTL` as a safety net; a subagent whose `SubagentStop` never landed is pruned after
+  `CLAWD_AGENT_TTL`.
 
 ## Uninstall
 
@@ -223,6 +245,11 @@ Removes the widget files, the `source` line, and the hooks (backups kept). Flags
   (`ls ~/.config/sketchybar/clawd/frames`) and bump `CLAWD_IMG_WIDTH` if it looks clipped.
 - **Mascot shows boxes/▯ (glyph styles):** the font lacks the glyphs. Use the default
   `CLAWD_STYLE=image`, point `CLAWD_ICON_FONT` at a Nerd Font, or use `CLAWD_STYLE=ascii`.
+- **No number badge while `/agents` are running:** your Claude Code must emit the `SubagentStart`
+  hook — check with `jq '.hooks.SubagentStart' ~/.claude/settings.json` after re-running
+  `hooks/install-hooks.sh`, and re-launch `claude` (hooks are read at startup). On a small sprite the
+  badge can sit on the head rather than above it — raise `CLAWD_AGENT_YOFF` (`7` suits
+  `CLAWD_IMG_SCALE=0.3`), but too high and the box clips it.
 - **No dots / nothing changes when Claude runs:** confirm the hooks are installed
   (`jq .hooks ~/.claude/settings.json`) and `clawd.hook.sh` is executable. A session that
   started *before* the hooks were installed won't appear until you relaunch `claude`. Test the

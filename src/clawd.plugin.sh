@@ -7,7 +7,8 @@
 #           arm-up waving, dead, asleep), capped at CLAWD_HERD_MAX then "+K".
 #   hero  — a single mascot reflecting the most-urgent session, plus a glyph
 #           strip with one glyph per session, urgency-sorted and capped.
-# Either way the box border turns orange while any session is waiting on you.
+# Either way the box border turns orange while any session is waiting on you, and
+# a session running subagents wears their count as a badge over its head.
 #
 # Smooth motion comes from a background worker (this script re-executed as
 # `__clawd_anim__` / `__clawd_herd_anim__`), because SketchyBar's update_freq is
@@ -34,6 +35,7 @@ HPIDFILE="$STATE_DIR/herd.pid"
 MULTI="$STATE_DIR/multi.state"          # herd worker: "<item> <frame0> <frame1>" per line
 BOX="clawd_box"                          # bracket name (see clawd.widget.sh)
 SESS="$(clawd_sessions_dir)"; mkdir -p "$SESS"
+AGENTS="$(clawd_agents_dir)"            # agents/<session_id>/<agent_id> per live subagent
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/usr/bin:/bin:$PATH"
 SB="$(command -v sketchybar 2>/dev/null)" || exit 0
@@ -147,14 +149,54 @@ set_border() {  # orange while $1 == waiting, else normal
   "$SB" --set "$BOX" background.border_color="$_bc" >/dev/null 2>&1
 }
 
-# Overlay the "?" badge label on a waiting item, clear it otherwise. Font/color/
-# position are baked in at item creation (clawd.widget.sh); we only toggle text.
-set_ask() {  # $1 item, $2 state
-  if [ "$2" = "waiting" ]; then
-    "$SB" --set "$1" label="$CLAWD_ASK_GLYPH" label.drawing=on >/dev/null 2>&1
-  else
-    "$SB" --set "$1" label.drawing=off >/dev/null 2>&1
+# Live subagents for session $1, pruning registrations whose SubagentStop never
+# landed (killed session, crashed CLI) so a leak can't pin the badge on forever.
+agent_count() {  # $1 session id -> N
+  _adir="$AGENTS/$1"; _an=0
+  if [ -d "$_adir" ]; then
+    for _af in "$_adir"/*; do
+      [ -f "$_af" ] || continue
+      _amt="$(stat -f %m "$_af" 2>/dev/null || echo "$now")"
+      if [ $((now - _amt)) -gt "$CLAWD_AGENT_TTL" ]; then rm -f "$_af"; continue; fi
+      _an=$((_an + 1))
+    done
   fi
+  printf '%s' "$_an"
+}
+
+# Claude Code's Stop hook fires while subagents are still running, so a session
+# can read "idle" with agents mid-flight. Agents at work = the clawd is at work.
+eff_state() {  # $1 raw state, $2 agent count -> state
+  case "$1" in
+    waiting | error) printf '%s' "$1" ;;                 # urgency wins over agents
+    *) if [ "${2:-0}" -gt 0 ]; then printf 'working'; else printf '%s' "$1"; fi ;;
+  esac
+}
+
+# Badge text for N running agents: "" when off/none, "3", or "9+" past the cap.
+agent_badge() {  # $1 count
+  [ "${CLAWD_SHOW_AGENTS:-1}" = "1" ] || return 0
+  [ "${1:-0}" -gt 0 ] || return 0
+  if [ "$1" -gt "$CLAWD_AGENT_MAX" ]; then printf '%s+' "$CLAWD_AGENT_MAX"
+  else printf '%s' "$1"; fi
+}
+
+# Overlay an item's two badges: the agent count over the head and "?" when the
+# session wants you. Font/color/corner are baked in at item creation
+# (clawd.widget.sh); here we only toggle text. In image mode they get a corner
+# each (icon = count top-left, label = "?" top-right); glyph styles spend the
+# icon on the mascot itself, so both share the label ("?", "2", "?2").
+set_badges() {  # $1 item, $2 state, $3 agent count
+  _ask=""; [ "$2" = "waiting" ] && _ask="$CLAWD_ASK_GLYPH"
+  _num="$(agent_badge "${3:-0}")"
+  if [ "$CLAWD_STYLE" = "image" ]; then
+    if [ -n "$_num" ]; then "$SB" --set "$1" icon="$_num" icon.drawing=on >/dev/null 2>&1
+    else "$SB" --set "$1" icon.drawing=off >/dev/null 2>&1; fi
+  else
+    _ask="$_ask$_num"
+  fi
+  if [ -n "$_ask" ]; then "$SB" --set "$1" label="$_ask" label.drawing=on >/dev/null 2>&1
+  else "$SB" --set "$1" label.drawing=off >/dev/null 2>&1; fi
 }
 
 # per-state frames for a herd slot: animated states echo "f0 f1", else empty
@@ -178,12 +220,14 @@ now="$(date +%s)"
 # =============================================================================
 hero_main() {
   stop_herd
-  n_wait=0; n_err=0; n_work=0; n_idle=0; total=0
+  n_wait=0; n_err=0; n_work=0; n_idle=0; total=0; n_agents=0
   for f in "$SESS"/*; do
     [ -f "$f" ] || continue
     mt="$(stat -f %m "$f" 2>/dev/null || echo "$now")"
     if [ $((now - mt)) -gt "$CLAWD_SESSION_TTL" ]; then rm -f "$f"; continue; fi
-    case "$(cat "$f" 2>/dev/null)" in
+    ac="$(agent_count "${f##*/}")"          # file name = session id
+    n_agents=$((n_agents + ac))             # hero badge = agents across all sessions
+    case "$(eff_state "$(cat "$f" 2>/dev/null)" "$ac")" in
       waiting) n_wait=$((n_wait + 1)) ;;
       error)   n_err=$((n_err + 1)) ;;
       working) n_work=$((n_work + 1)) ;;
@@ -196,7 +240,7 @@ hero_main() {
   # a "start me" call to action — no sleep pose, no props, no status strip.
   if [ "$total" -eq 0 ] && [ "$CLAWD_STYLE" = "image" ]; then
     [ "${CLAWD_SHOW_DOTS:-1}" = "1" ] && "$SB" --set clawd.sessions label="" label.drawing=off >/dev/null 2>&1
-    set_border "ok"; set_ask clawd "ok"
+    set_border "ok"; set_badges clawd "ok" 0
     if printf '%s\n%s\n' "$BLINK_S" "$BLINK_FRAMES" >"$ANIM_STATE.tmp" 2>/dev/null \
        && mv "$ANIM_STATE.tmp" "$ANIM_STATE" 2>/dev/null; then
       start_anim
@@ -232,7 +276,7 @@ hero_main() {
     "$SB" --set clawd.sessions label="$STRIP_OUT" label.drawing=on >/dev/null 2>&1
   fi
 
-  set_border "$top"; set_ask clawd "$top"
+  set_border "$top"; set_badges clawd "$top" "$n_agents"
 
   anim="$(clawd_anim "$top")"           # "<interval_ms> <frame...>"
   int_ms="${anim%% *}"; frames="${anim#* }"
@@ -275,7 +319,7 @@ herd_main() {
   _i=0
   for f in $_list; do
     [ "$_i" -ge "$_shown" ] && break
-    _hf="$(herd_frames "$(cat "$f" 2>/dev/null)")"
+    _hf="$(herd_frames "$(eff_state "$(cat "$f" 2>/dev/null)" "$(agent_count "${f##*/}")")")"
     [ -n "$_hf" ] && printf 'clawd.s%s %s\n' "$_i" "$_hf" >>"$MULTI.tmp"
     _i=$((_i + 1))
   done
@@ -287,17 +331,18 @@ herd_main() {
   _i=0
   for f in $_list; do
     [ "$_i" -ge "$_shown" ] && break
-    _st="$(cat "$f" 2>/dev/null)"; _hf="$(herd_frames "$_st")"
+    _ac="$(agent_count "${f##*/}")"
+    _st="$(eff_state "$(cat "$f" 2>/dev/null)" "$_ac")"; _hf="$(herd_frames "$_st")"
     if [ -n "$_hf" ]; then img_set "clawd.s$_i" "${_hf%% *}"
     else img_set "clawd.s$_i" "$(herd_static "$_st")"; fi
-    set_ask "clawd.s$_i" "$_st"
+    set_badges "clawd.s$_i" "$_st" "$_ac"
     "$SB" --set "clawd.s$_i" drawing=on >/dev/null 2>&1
     _i=$((_i + 1))
   done
   # no sessions at all -> one white clawd blinking (call to action) — the worker
   # cycles its frames (manifest written above); seed the open frame + show it.
   if [ "$_count" -eq 0 ]; then
-    img_set clawd.s0 "$BLINK_OPEN"; set_ask clawd.s0 "ok"
+    img_set clawd.s0 "$BLINK_OPEN"; set_badges clawd.s0 "ok" 0
     "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
   fi
   while [ "$_i" -lt "$CLAWD_HERD_MAX" ]; do "$SB" --set "clawd.s$_i" drawing=off >/dev/null 2>&1; _i=$((_i + 1)); done

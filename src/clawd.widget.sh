@@ -21,7 +21,7 @@ CLAWD_FRAMES_DIR="$CLAWD_DIR/frames"
 clawd_load_config
 
 _clawd_state="$(clawd_state_dir)"
-mkdir -p "$_clawd_state" "$(clawd_sessions_dir)"
+mkdir -p "$_clawd_state" "$(clawd_sessions_dir)" "$(clawd_agents_dir)"
 
 # Recolor the sprite per state (image mode). Each distinct color is rendered once
 # by the bundled generator into a cached dir keyed by color + dead-color + art
@@ -66,6 +66,9 @@ fi
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
   echo "CLAWD_BLINK_MS=$CLAWD_BLINK_MS"
   echo "CLAWD_ASK_GLYPH=$CLAWD_ASK_GLYPH"
+  echo "CLAWD_SHOW_AGENTS=$CLAWD_SHOW_AGENTS"
+  echo "CLAWD_AGENT_MAX=$CLAWD_AGENT_MAX"
+  echo "CLAWD_AGENT_TTL=$CLAWD_AGENT_TTL"
   echo "CLAWD_FRAMES_DIR=$CLAWD_FRAMES_DIR"
   echo "CLAWD_DIR_WORK=${CLAWD_DIR_WORK:-$CLAWD_FRAMES_DIR}"
   echo "CLAWD_DIR_IDLE=${CLAWD_DIR_IDLE:-$CLAWD_FRAMES_DIR}"
@@ -90,7 +93,9 @@ _add_mascot() {
     sketchybar --add item clawd "$_pos" \
       --set clawd background.image="$CLAWD_IDLE" background.image.scale="$CLAWD_IMG_SCALE" \
                   background.image.drawing=on background.color=0x00000000 \
-                  icon.drawing=off \
+                  icon.font="$CLAWD_AGENT_FONT" icon.color="$CLAWD_AGENT_COLOR" \
+                  icon.align=left icon.y_offset="$CLAWD_AGENT_YOFF" \
+                  icon.padding_left=3 icon.drawing=off \
                   label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
                   label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
                   label.padding_right=3 label.drawing=off \
@@ -100,7 +105,9 @@ _add_mascot() {
   else
     sketchybar --add item clawd "$_pos" \
       --set clawd icon="$CLAWD_IDLE" icon.font="$CLAWD_ICON_FONT" icon.color="$CLAWD_FG" \
-                  icon.padding_left=8 icon.padding_right=6 label.drawing=off \
+                  icon.padding_left=8 icon.padding_right=6 \
+                  label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
+                  label.padding_right=6 label.drawing=off \
                   script="$_plugin" \
       --subscribe clawd claude_state
   fi
@@ -117,7 +124,9 @@ _add_slot() {  # $1 = slot index
   sketchybar --add item "clawd.s$1" "$_pos" \
     --set "clawd.s$1" background.image="$CLAWD_F_SLEEP" background.image.scale="$CLAWD_IMG_SCALE" \
                       background.image.drawing=on background.color=0x00000000 \
-                      icon.drawing=off \
+                      icon.font="$CLAWD_AGENT_FONT" icon.color="$CLAWD_AGENT_COLOR" \
+                      icon.align=left icon.y_offset="$CLAWD_AGENT_YOFF" \
+                      icon.padding_left=3 icon.drawing=off \
                       label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
                       label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
                       label.padding_right=3 label.drawing=off \

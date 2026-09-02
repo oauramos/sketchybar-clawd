@@ -18,6 +18,12 @@ clawd_state_dir() {
 clawd_sessions_dir() {
   printf '%s' "$(clawd_state_dir)/sessions"
 }
+# One dir per session, holding one empty file per running subagent:
+# agents/<session_id>/<agent_id>. Created on SubagentStart, removed on
+# SubagentStop — so the file count IS the live agent count.
+clawd_agents_dir() {
+  printf '%s' "$(clawd_state_dir)/agents"
+}
 
 # Map a session state to its status-strip glyph.
 clawd_dot() {
@@ -77,6 +83,14 @@ clawd_anim() {
 #                        sessions a single neutral-white clawd just blinks (eyes
 #                        open/closed, no props) as a "start me" call to action.
 #     CLAWD_ICON_FONT    mascot font (glyph styles only)
+#   Running-agent badge (a session with N subagents -> "N" over the clawd's head):
+#     CLAWD_SHOW_AGENTS  1 (default) | 0 (never badge the agent count)
+#     CLAWD_AGENT_COLOR  badge color (default CLAWD_ASK_COLOR)
+#     CLAWD_AGENT_FONT   badge font  (default CLAWD_ASK_FONT)
+#     CLAWD_AGENT_YOFF   badge vertical nudge, +up (default CLAWD_ASK_YOFF)
+#     CLAWD_AGENT_MAX    counts above this render as "N+" (default 9)
+#     CLAWD_AGENT_TTL    forget an agent with no SubagentStop after N seconds
+#                        (default 3600) — self-heals a killed session's leftovers
 #   Waiting "?" badge (a session is waiting on you -> a "?" over its top-right):
 #     CLAWD_ASK_GLYPH    badge text (default "?")
 #     CLAWD_ASK_COLOR    badge color (default CLAWD_FG / near-white)
@@ -128,6 +142,15 @@ clawd_load_config() {
   CLAWD_ASK_COLOR="${CLAWD_ASK_COLOR:-$CLAWD_FG}"    # near-white, matches the mascot
   CLAWD_ASK_FONT="${CLAWD_ASK_FONT:-Hack Nerd Font:Bold:9.0}"
   CLAWD_ASK_YOFF="${CLAWD_ASK_YOFF:-5}"             # +up; small gap below the top border
+
+  # Running-subagent count badge ("2" over the head = two agents working for that
+  # session). Mirrors the ask badge's look by default, on the opposite corner.
+  CLAWD_SHOW_AGENTS="${CLAWD_SHOW_AGENTS:-1}"
+  CLAWD_AGENT_COLOR="${CLAWD_AGENT_COLOR:-$CLAWD_ASK_COLOR}"
+  CLAWD_AGENT_FONT="${CLAWD_AGENT_FONT:-$CLAWD_ASK_FONT}"
+  CLAWD_AGENT_YOFF="${CLAWD_AGENT_YOFF:-$CLAWD_ASK_YOFF}"
+  CLAWD_AGENT_MAX="${CLAWD_AGENT_MAX:-9}"           # above this -> "9+"
+  CLAWD_AGENT_TTL="${CLAWD_AGENT_TTL:-3600}"        # drop agents that never stopped
 
   # per-session status strip
   CLAWD_SHOW_DOTS="${CLAWD_SHOW_DOTS:-1}"

@@ -74,6 +74,8 @@ if [ "$MODE" = "install" ]; then
     | .hooks.Stop             = (strip(\"Stop\")             + [{hooks:[{type:\"command\", command:(\$hook+\" idle\")}]}])
     | .hooks.StopFailure      = (strip(\"StopFailure\")      + [{hooks:[{type:\"command\", command:(\$hook+\" error\")}]}])
     | .hooks.Notification     = (strip(\"Notification\")     + [{matcher:\"\", hooks:[{type:\"command\", command:(\$hook+\" notification\")}]}])
+    | .hooks.SubagentStart    = (strip(\"SubagentStart\")    + [{hooks:[{type:\"command\", command:(\$hook+\" agent-start\")}]}])
+    | .hooks.SubagentStop     = (strip(\"SubagentStop\")     + [{hooks:[{type:\"command\", command:(\$hook+\" agent-stop\")}]}])
     | .hooks.SessionEnd       = (strip(\"SessionEnd\")       + [{hooks:[{type:\"command\", command:(\$hook+\" end\")}]}])
   " "$SETTINGS" >"$tmp"
 else
@@ -86,6 +88,8 @@ else
       | .hooks.Stop          = strip(\"Stop\")
       | .hooks.StopFailure   = strip(\"StopFailure\")
       | .hooks.Notification  = strip(\"Notification\")
+      | .hooks.SubagentStart = strip(\"SubagentStart\")
+      | .hooks.SubagentStop  = strip(\"SubagentStop\")
       | .hooks.SessionEnd    = strip(\"SessionEnd\")
       | .hooks |= with_entries(select(.value | length > 0))
       | if (.hooks | length) == 0 then del(.hooks) else . end
