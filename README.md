@@ -1,62 +1,62 @@
+<div align="center">
+
 # sketchybar-clawd
 
-A tiny [SketchyBar](https://github.com/FelixKratz/SketchyBar) widget that puts a little **herd of
-clawds** in your macOS menu bar — **one clawd per running [Claude Code](https://claude.com/claude-code)
-session**, each *acting out* what that session is doing. A glance tells you how many sessions you
-have and whether any of them needs you.
+**A tiny pixel clawd for every Claude Code session — living in your macOS menu bar.**
 
-<p align="center">
-  <img src="assets/clawd.png" alt="one clawd per Claude Code session, each acting out its state" width="320">
-</p>
+Glance up. Who's working, who's stuck waiting on you, who's fast asleep.
 
-Each clawd plays its session's state — and can be colored per state:
+<img src="assets/clawd.png" alt="Four clawds in the menu bar: two hammering (one with three agents), one asleep, one waiting" width="620">
 
-| clawd | State | When |
-|-------|-------|------|
-| 🔨 **hammers** (orange) | **working** | from the moment you submit a prompt until the turn ends — including while its subagents are still running |
-| 🔢 **a count over the head** | **N agents** | N subagents running for that session (`SubagentStart` → `SubagentStop`) |
-| ❓ **open-eyed + a "?" badge** (white) | **waiting** | the session needs you — a permission prompt or dialog |
-| 💤 **asleep, `-_-` + zzz** (gray) | **idle** | at rest / the turn finished |
-| 💀 **keels over, X-eyes** | **error** | the turn ended in an API error (`StopFailure`) |
+[![macOS](https://img.shields.io/badge/macOS-000?logo=apple&logoColor=fff)](https://www.apple.com/macos/)
+[![SketchyBar](https://img.shields.io/badge/SketchyBar-widget-d97757)](https://github.com/FelixKratz/SketchyBar)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks-d97757)](https://claude.com/claude-code)
+[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 
-A session running **subagents** (`/agents`, the Task tool) wears the number of live agents as a
-badge over its clawd's head — `2` means two agents are off working for it, `9+` past
-`CLAWD_AGENT_MAX`. Claude Code's `Stop` hook fires *before* its subagents finish, so a session with
-agents in flight keeps hammering instead of dropping to `idle` — the badge and the pose agree.
+</div>
 
-Whenever **any** session is waiting on you, the whole box border glows **orange** — a peripheral-
-vision "come back to me" alarm. The herd is sorted by start time and capped at `CLAWD_HERD_MAX`
-clawds, then collapses to a `+K` counter. Sessions appear on `SessionStart`, vanish on `SessionEnd`.
+---
 
-With **no sessions at all**, a single neutral-white clawd just **blinks** (eyes open/closed, no
-hammer, no raised arms, no zzz) — a quiet "nobody home, start me" call to action. Tune it with
-`CLAWD_BLINK_MS`.
+## The problem
 
-Prefer a single mascot? Set **`CLAWD_MODE=hero`** for one clawd reflecting your *most-urgent*
-session (`waiting > error > working > idle`) plus a compact glyph strip — `○` idle, `●` working,
-`◐` waiting, `✗` error — one glyph per session.
+You've got Claude Code running in four terminal tabs. One is waiting on a permission prompt.
+One finished five minutes ago. One is off running subagents. Which is which? Right now you
+find out by tabbing through every window.
 
-The mascot is the pixel-art clawd from the **[Claude Usage Stick](https://github.com/oauramos/claude-usage-stick)**
-firmware (here 18×6, with a prop band for the mallet / raised arms / zzz). It works standalone too —
-drive a session yourself with the hook script.
+## The fix
 
-> **Want to measure your usage, too?** sketchybar-clawd shows what your sessions are *doing*; for how
-> much Claude you're actually *burning through*, its sibling project
-> **[claude-usage-stick](https://github.com/oauramos/claude-usage-stick)** is a tiny hardware dongle
-> (starring the very same clawd) that shows your live Claude usage on a little screen. They pair nicely.
+One little creature per session, always visible:
 
-## Requirements
+<img src="assets/demo.gif" alt="A clawd wakes up and hammers, its agent count climbs to 3, then another clawd asks for permission and the box glows orange" width="620">
 
-- **macOS** with [SketchyBar](https://github.com/FelixKratz/SketchyBar) installed and running.
-- **`jq`** — used to read the notification type and to merge the hooks (`brew install jq`).
-  Optional if you don't use the Claude Code hooks.
-- **Claude Code** — for the hooks that drive the states automatically.
+That's the whole idea. A session starts, a clawd appears. It hammers while Claude works,
+wears a number when it spawns subagents, throws up a **?** when it needs you — and the box
+glows orange so you catch it out of the corner of your eye.
 
-The default `image` mascot ships as ready-made PNGs and needs no extra fonts. (The optional
-glyph styles — `blocks` / `braille` — want a [Nerd Font](https://www.nerdfonts.com/) like
-`Hack Nerd Font`; `ascii` needs nothing.)
+## What each clawd is telling you
+
+<img src="assets/states.png" alt="working, plus agents, waiting, idle and error clawds side by side" width="820">
+
+| | Means | Fires on |
+|---|---|---|
+| 🔨 **hammering**, orange | Claude is working | the moment you hit enter |
+| 🔢 **a number over its head** | that many subagents (`/agents`) are running for it | `SubagentStart` / `SubagentStop` |
+| ❓ **wide awake with a ?** | it needs you — permission prompt or dialog | `Notification` |
+| 💤 **curled up asleep** | turn finished, nothing to do | `Stop` |
+| 💀 **X eyes, keeled over** | the turn died on an API error | `StopFailure` |
+
+Whenever **any** session is waiting, the whole box border turns orange. That's the part you'll
+actually notice while looking somewhere else.
+
+> No sessions running at all? A single clawd sits there and blinks at you — a quiet
+> "nobody home, start me".
+
+---
 
 ## Install
+
+**You need:** macOS, [SketchyBar](https://github.com/FelixKratz/SketchyBar) already running,
+[Claude Code](https://claude.com/claude-code), and `jq` (`brew install jq`).
 
 ```sh
 git clone https://github.com/oauramos/sketchybar-clawd.git
@@ -64,171 +64,259 @@ cd sketchybar-clawd
 ./install.sh
 ```
 
-The installer will:
+The installer asks before each step, backs up anything it touches, and can be re-run safely:
 
-1. Copy the widget into `~/.config/sketchybar/clawd/`.
-2. Offer to add one line to your `sketchybarrc`:
-   ```sh
-   source "$CONFIG_DIR/clawd/clawd.widget.sh"
-   ```
-3. Offer to merge the Claude Code hooks into `~/.claude/settings.json`.
-4. Reload SketchyBar.
+1. Copies the widget to `~/.config/sketchybar/clawd/`
+2. Adds one line to your `sketchybarrc` — `source "$CONFIG_DIR/clawd/clawd.widget.sh"`
+3. Merges the Claude Code hooks into `~/.claude/settings.json` (this is what makes the clawds
+   move — it only *adds* to that file, your own hooks stay put)
+4. Reloads SketchyBar
 
-It is idempotent, backs up any file before changing it, and never overwrites your config.
-If your `sketchybarrc` is read-only (e.g. managed by Nix/home-manager), it prints the line
-for you to add declaratively instead of editing it.
+**Then quit and relaunch `claude`.** Hooks are read when a session starts, so tabs you already
+have open won't show up until you restart them.
 
-Useful flags: `--no-hooks`, `--with-hooks`, `--yes` (non-interactive), `--config-dir DIR`,
-`--link` (symlink instead of copy, for development), `--print-only` (dry run).
+### Did it work?
 
-### Manual install
+A clawd should appear the moment you launch `claude`, and start hammering when you send a prompt.
+If you'd rather not wait, fake a session:
+
+```sh
+echo '{"session_id":"test"}' | ~/.config/sketchybar/clawd/clawd.hook.sh working   # a clawd starts hammering
+echo '{"session_id":"test"}' | ~/.config/sketchybar/clawd/clawd.hook.sh end       # and it's gone
+```
+
+<details>
+<summary><b>Other ways to install</b> — flags, manual, read-only configs (Nix)</summary>
+
+<br>
+
+Installer flags: `--no-hooks`, `--with-hooks`, `--yes` (non-interactive), `--config-dir DIR`,
+`--link` (symlink instead of copy — handy while hacking on it), `--print-only` (dry run).
+
+By hand, if you prefer:
 
 ```sh
 cp -r src ~/.config/sketchybar/clawd
 chmod +x ~/.config/sketchybar/clawd/*.sh
 echo 'source "$CONFIG_DIR/clawd/clawd.widget.sh"' >> ~/.config/sketchybar/sketchybarrc
 sketchybar --reload
-# then, for the automatic states:
-hooks/install-hooks.sh --hook ~/.config/sketchybar/clawd/clawd.hook.sh
+hooks/install-hooks.sh --hook ~/.config/sketchybar/clawd/clawd.hook.sh   # the automatic states
 ```
 
-## Configuration
+If your `sketchybarrc` is read-only (Nix, home-manager, a dotfiles repo), the installer won't
+fight you — it prints the line to add declaratively and moves on.
 
-Export any of these **before** the `source` line in your `sketchybarrc`:
+Hooks for one project only: `hooks/install-hooks.sh --project`.
+Prefer to paste them yourself? See [`hooks/settings.snippet.json`](hooks/settings.snippet.json).
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CLAWD_MODE` | `herd` | `herd` (one clawd per session) or `hero` (one most-urgent mascot + glyph strip) |
-| `CLAWD_HERD_MAX` | `6` | Herd: clawds shown before collapsing to `+K` |
-| `CLAWD_HERD_MS` | `180` | Herd: animation frame interval (ms) |
-| `CLAWD_STYLE` | `image` | Mascot: `image` (pixel-art sprite), or glyphs `blocks` / `braille` / `ascii` (glyphs force `hero`) |
-| `CLAWD_POSITION` | `right` | Bar side: `left`, `center`, `right` |
-| `CLAWD_IMG_SCALE` | `0.4` | Sprite scale (image mode) |
-| `CLAWD_IMG_WIDTH` | `34` | Per-clawd item width in px (image mode) |
-| `CLAWD_IMG_PAD_LEFT` | `0` | Left margin before the sprite (px) |
-| `CLAWD_COLOR` | `ffffff` | Base sprite color `RRGGBB` — auto-recolors (needs `python3`) |
-| `CLAWD_COLOR_WORK` / `CLAWD_COLOR_IDLE` / `CLAWD_COLOR_WAIT` | `$CLAWD_COLOR` | Per-state sprite colors (e.g. orange working, gray idle, white waiting) |
-| `CLAWD_DEAD_COLOR` | `7b7d7b` | Color of the "dead"/error sprite |
-| `CLAWD_SHOW_DOTS` | `1` | Hero mode: show the per-session glyph strip (`0` = mascot only) |
-| `CLAWD_DOT_IDLE` / `CLAWD_DOT_WORK` / `CLAWD_DOT_WAIT` / `CLAWD_DOT_ERR` | `○` / `●` / `◐` / `✗` | Per-state strip glyphs |
-| `CLAWD_STRIP_MAX` | `8` | Show at most N glyphs, then collapse to `+K` |
-| `CLAWD_DOT_SEP` | `" "` | Separator between glyphs |
-| `CLAWD_DOT_FONT` | `Hack Nerd Font:Bold:14.0` | Strip font (a Nerd/monospace font keeps `○ ● ◐ ✗` the same size) |
-| `CLAWD_DOT_COLOR` | `$CLAWD_FG` | Strip color |
-| `CLAWD_SESSION_TTL` | `28800` | Prune a session with no update for this many seconds (safety net) |
-| `CLAWD_FG` | `0xfff5f5f7` | Foreground/accent color |
-| `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:12.0` | Mascot font (glyph styles only) |
-| `CLAWD_FRAME_MS` | `150` | Working (hammer) frame interval (ms) |
-| `CLAWD_BLINK_MS` | `200` | No-session blink frame interval (ms) — exact in `hero`; `herd` blinks on the herd tick |
-| `CLAWD_ASK_GLYPH` / `CLAWD_ASK_COLOR` / `CLAWD_ASK_FONT` / `CLAWD_ASK_YOFF` | `?` / `$CLAWD_FG` / `Hack Nerd Font:Bold:9.0` / `5` | Waiting "?" badge over the mascot's top-right |
-| `CLAWD_SHOW_AGENTS` | `1` | Badge the running-subagent count over the clawd's head (`0` = never) |
-| `CLAWD_AGENT_COLOR` / `CLAWD_AGENT_FONT` / `CLAWD_AGENT_YOFF` | `$CLAWD_ASK_*` | Agent-count badge color / font / vertical nudge (raise it for a small sprite, e.g. `7`) |
-| `CLAWD_AGENT_MAX` | `9` | Counts above this render as `9+` |
-| `CLAWD_AGENT_TTL` | `3600` | Forget an agent whose `SubagentStop` never arrived, after N seconds |
-| `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box (bracket) appearance |
-| `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border color while a session is **waiting** (the "come back" alarm) |
+</details>
 
-Example — bigger sprite on the left:
+---
+
+## Make it yours
+
+Put these **above** the `source` line in your `sketchybarrc`. Nothing here is required — the
+defaults are a neutral white clawd that suits most bars.
+
+**Match your bar's colors** (the setup in the pictures above):
+
+```sh
+export CLAWD_COLOR_WORK=ef7139     # orange while working
+export CLAWD_COLOR_IDLE=888888     # gray while asleep
+export CLAWD_COLOR_WAIT=f5f5f7     # white when it needs you
+export CLAWD_BG=0xbf1c1c1e         # box fill  — match your other boxes
+export CLAWD_BORDER=0xff48484a     # box border
+source "$CONFIG_DIR/clawd/clawd.widget.sh"
+```
+
+**Bigger, and on the left:**
 
 ```sh
 export CLAWD_POSITION=left
 export CLAWD_IMG_SCALE=0.8
+export CLAWD_IMG_WIDTH=60
 source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
 
-Example — match a monochrome bar (near-white clawd in a graphite box):
+**One mascot instead of a herd** — a single clawd showing your most urgent session, plus a row
+of dots (`○` idle, `●` working, `◐` waiting, `✗` error):
 
 ```sh
-export CLAWD_COLOR=f5f5f7          # recolors the sprite to your foreground
-export CLAWD_BG=0xbf1c1c1e         # match your box fill
-export CLAWD_BORDER=0xff48484a     # and border
-export CLAWD_RADIUS=9
+export CLAWD_MODE=hero
 source "$CONFIG_DIR/clawd/clawd.widget.sh"
 ```
 
-Example — color-code the states (orange working, gray idle, white waiting):
+Recoloring is automatic: each color is rendered once by the bundled generator (needs `python3`)
+and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic Claude orange.
 
-```sh
-export CLAWD_COLOR_WORK=ef7139   # the Claude-orange clawd, hammering
-export CLAWD_COLOR_IDLE=888888   # dim gray, asleep
-export CLAWD_COLOR_WAIT=f5f5f7   # white, with a "?" badge
-source "$CONFIG_DIR/clawd/clawd.widget.sh"
-```
+<details>
+<summary><b>Every setting</b> — the full table</summary>
 
-Each color renders recolored frames once (cached under `~/.cache/sketchybar-clawd/`) using the
-bundled `gen-clawd.py`; the cache key includes an art version, so sprite-art upgrades regenerate
-automatically. The shipped default is a neutral white that suits most bars (set `CLAWD_COLOR=D97757`
-for the classic Claude orange).
+<br>
 
-### The mascot sprite
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `CLAWD_MODE` | `herd` | `herd` (one clawd per session) or `hero` (one mascot + a dot strip) |
+| `CLAWD_HERD_MAX` | `6` | Clawds shown before collapsing to `+K` |
+| `CLAWD_HERD_MS` | `180` | Herd animation frame interval (ms) |
+| `CLAWD_STYLE` | `image` | `image` (pixel sprite), or the glyph styles `blocks` / `braille` / `ascii` (these force `hero`) |
+| `CLAWD_POSITION` | `right` | `left`, `center`, `right` |
+| `CLAWD_IMG_SCALE` | `0.4` | Sprite scale |
+| `CLAWD_IMG_WIDTH` | `34` | Per-clawd item width (px) |
+| `CLAWD_IMG_PAD_LEFT` | `0` | Left margin before the sprite (px) |
+| `CLAWD_COLOR` | `ffffff` | Base sprite color `RRGGBB` |
+| `CLAWD_COLOR_WORK` / `_IDLE` / `_WAIT` | `$CLAWD_COLOR` | Per-state sprite colors |
+| `CLAWD_DEAD_COLOR` | `7b7d7b` | The keeled-over sprite |
+| `CLAWD_FRAME_MS` | `150` | Hammer swing speed (ms) |
+| `CLAWD_BLINK_MS` | `200` | Blink speed when no sessions are running |
+| `CLAWD_SHOW_AGENTS` | `1` | Badge the running-subagent count (`0` = never) |
+| `CLAWD_AGENT_COLOR` / `_FONT` / `_YOFF` | same as the `?` badge | Agent-count badge look; raise `_YOFF` (try `7`) if the number sits *on* the head instead of above it |
+| `CLAWD_AGENT_MAX` | `9` | Counts above this read `9+` |
+| `CLAWD_AGENT_TTL` | `3600` | Forget an agent whose `SubagentStop` never arrived, after N seconds |
+| `CLAWD_ASK_GLYPH` / `_COLOR` / `_FONT` / `_YOFF` | `?` / `$CLAWD_FG` / `Hack Nerd Font:Bold:9.0` / `5` | The "needs you" badge |
+| `CLAWD_SHOW_DOTS` | `1` | Hero mode: show the dot strip |
+| `CLAWD_DOT_IDLE` / `_WORK` / `_WAIT` / `_ERR` | `○` `●` `◐` `✗` | Dot glyphs |
+| `CLAWD_DOT_SEP` / `_FONT` / `_COLOR` | `" "` / `Hack Nerd Font:Bold:14.0` / `$CLAWD_FG` | Dot strip styling |
+| `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` |
+| `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds (safety net) |
+| `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box appearance |
+| `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border while a session is waiting |
+| `CLAWD_FG` | `0xfff5f5f7` | Foreground/accent color |
+| `CLAWD_ICON_FONT` | `Hack Nerd Font:Bold:12.0` | Mascot font (glyph styles only) |
 
-The sprite is an 18×6 pixel-art clawd (rounded head, two eyes, four feet, plus a one-row prop
-band on top) rendered to one PNG per pose: `clawd-open` / `clawd-closed` (blink), `clawd-dead`
-(error, X-eyes), `clawd-hammer-up` / `clawd-hammer-down` (working), `clawd-wait`
-(waiting — a plain open-eyed body; the widget overlays a "?" badge), and `clawd-sleep`
-(idle — `-_-` dashed eyes + a rising `zzz`). To recolor or
-resize them, regenerate every pose with the bundled generator (pure Python 3, no dependencies):
+</details>
+
+<details>
+<summary><b>The sprite</b> — poses, and how to redraw it</summary>
+
+<br>
+
+An 18×6 pixel clawd — rounded head, two eyes, four feet, plus a one-row band on top for props
+(the mallet, the `zzz`). One PNG per pose: `clawd-open` / `clawd-closed` (blink), `clawd-dead`
+(X eyes), `clawd-hammer-up` / `clawd-hammer-down` (working), `clawd-wait` (the widget adds the
+`?`), `clawd-sleep` (`-_-` plus a rising `zzz`).
+
+Regenerate them at any color or size (pure Python 3, no dependencies):
 
 ```sh
 python3 tools/gen-clawd.py --out ~/.config/sketchybar/clawd/frames --color 88c0d0 --cell-w 4 --cell-h 8
-# or just one pose: --pose hammer-up
+# or a single pose: --pose hammer-up
 ```
 
-Prefer text? Set `CLAWD_STYLE=blocks` (or `braille` / `ascii`) for a glyph mascot instead.
+The pictures in this README come from the same art — `tools/gen-readme-assets.py` (needs Pillow)
+rebuilds them, so the docs can't drift from the mascot.
 
-## Claude Code hooks
+The clawd itself is borrowed from
+[claude-usage-stick](https://github.com/oauramos/claude-usage-stick), a little hardware dongle
+that shows your live Claude usage on a screen. Same creature, different home.
 
-`hooks/install-hooks.sh` merges this into `~/.claude/settings.json` (existing keys and any
-other hooks are preserved; re-running never duplicates):
+</details>
 
-Each hook carries a `session_id` on stdin, so a session is tracked individually:
-
-| Hook | Fires | This session → |
-|------|-------|----------------|
-| `SessionStart` | A session begins/resumes | appears as `idle` |
-| `UserPromptSubmit` | You submit a prompt | `working` |
-| `Stop` | Turn finishes | `idle` |
-| `StopFailure` | Turn ends in an API error | `error` (clawd keels over) |
-| `Notification` | `permission_prompt` / `elicitation_dialog` → `waiting`; `idle_prompt` → `idle` | `waiting` / `idle` |
-| `SubagentStart` | A subagent spawns | agent count +1 (badge) |
-| `SubagentStop` | A subagent finishes | agent count −1 |
-| `SessionEnd` | A session ends | glyph removed |
-
-`working` starts at `UserPromptSubmit` (not `PreToolUse`) so the hero reacts the instant
-you hit enter, even on text-only replies. The subagent hooks carry the **parent** `session_id`
-(plus a stable `agent_id`), so agents badge the clawd that spawned them; a Claude Code old enough
-not to emit `SubagentStart` simply never shows the badge — everything else works unchanged. See `hooks/settings.snippet.json` for the raw block
-if you'd rather paste it by hand.
-
-Install for a single project instead of globally: `hooks/install-hooks.sh --project`.
-Remove the hooks: `hooks/install-hooks.sh --remove`.
+---
 
 ## How it works
 
-- Each hook calls `clawd.hook.sh`, which records that session's state in
-  `~/.cache/sketchybar-clawd/sessions/<session_id>` and fires the `claude_state` event.
-- Subagents get their own registry: one empty file per live agent at
-  `~/.cache/sketchybar-clawd/agents/<session_id>/<agent_id>`, created on `SubagentStart` and
-  removed on `SubagentStop` — so the file count *is* the badge. It's rebuilt from scratch on
-  `SessionStart` (except after a compaction, where agents may still be running) and dropped on
-  `SessionEnd`, so a crash can't leave a phantom count behind.
-- On that event `clawd.plugin.sh` reads every session file and renders one of two layouts:
-  - **herd** (default): a fixed pool of slot items (`clawd.s0…`), one shown per session (sorted by
-    start time, capped at `CLAWD_HERD_MAX` then `+K`), each set to its session's pose/color.
-  - **hero**: tallies the states, picks the single most-urgent one (`waiting > error > working >
-    idle`) for the mascot, and writes the urgency-sorted glyph strip on the `clawd.sessions` label.
-  - Either way it paints the `clawd_box` border orange whenever any session is waiting, and overlays
-    up to two badges per clawd: the running-agent count (the item's `icon`, top-left) and a "?" on a
-    waiting one (the item's `label`, top-right). Glyph styles spend the `icon` on the mascot itself,
-    so there the two share the label (`?2`).
-- The animated pose (working) is played by a small background worker that swaps
-  `background.image` between frames — a worker is used because SketchyBar's `update_freq` is
-  whole-second, too coarse for smooth motion. The hero worker re-reads `anim.state` each frame; the
-  herd worker advances every animated clawd on a shared tick from `multi.state`. Workers are tracked
-  by PID files (with a command-line guard against PID reuse) and stopped when nothing is animating.
-- If a session is killed without `SessionEnd` firing, its file is pruned after
-  `CLAWD_SESSION_TTL` as a safety net; a subagent whose `SubagentStop` never landed is pruned after
-  `CLAWD_AGENT_TTL`.
+Claude Code fires a **hook** on everything interesting that happens in a session. Each one hands
+us a `session_id`, which is how one session becomes one clawd.
+
+| Hook | When | That session becomes |
+|------|------|----------------------|
+| `SessionStart` | a session begins or resumes | idle |
+| `UserPromptSubmit` | you hit enter | working |
+| `Stop` | the turn ends | idle |
+| `StopFailure` | the turn ends in an API error | error |
+| `Notification` | permission prompt / dialog | waiting |
+| `SubagentStart` / `SubagentStop` | a subagent starts / finishes | agent count ±1 |
+| `SessionEnd` | the session ends | gone |
+
+<details>
+<summary><b>The details</b> — state files, animation, and one small lie Claude Code tells</summary>
+
+<br>
+
+- `clawd.hook.sh` writes each session's state to `~/.cache/sketchybar-clawd/sessions/<session_id>`
+  and fires SketchyBar's `claude_state` event. That's the entire bridge — no daemon, no polling.
+- Subagents get one empty file each at `~/.cache/sketchybar-clawd/agents/<session_id>/<agent_id>`,
+  so the file count *is* the badge. Both subagent hooks carry the **parent** session id, so agents
+  land on the clawd that spawned them.
+- **The small lie:** Claude Code fires `Stop` *before* its subagents finish, so a session can claim
+  it's idle with three agents still running. A session with live agents therefore keeps its working
+  pose — the badge and the animation agree.
+- On the event, `clawd.plugin.sh` reads every session file and draws either the herd (one slot item
+  per session, sorted by start time, capped then `+K`) or the hero (most urgent session + the dot
+  strip). Either way it paints the box border orange if anyone is waiting, and hangs the two badges
+  on each clawd: the agent count top-left, the `?` top-right.
+- Animation comes from a small background worker swapping `background.image` between frames —
+  SketchyBar's `update_freq` only goes down to one second, far too coarse for a hammer swing.
+  Workers are tracked by PID file and stopped when nothing is moving.
+- Nothing leaks: a session killed without `SessionEnd` is pruned after `CLAWD_SESSION_TTL`, an
+  agent whose `SubagentStop` never arrived after `CLAWD_AGENT_TTL`.
+
+</details>
+
+---
+
+## Something's wrong
+
+<details>
+<summary><b>Nothing happens when Claude runs</b></summary>
+
+<br>
+
+Check the hooks landed: `jq .hooks ~/.claude/settings.json` should mention `clawd.hook.sh`.
+Then make sure you **relaunched `claude`** — sessions read hooks at startup, so tabs opened
+before the install stay invisible. Test the bar on its own with:
+
+```sh
+echo '{"session_id":"test"}' | ~/.config/sketchybar/clawd/clawd.hook.sh working
+```
+
+</details>
+
+<details>
+<summary><b>No number appears when I run /agents</b></summary>
+
+<br>
+
+The badge needs your Claude Code to emit the `SubagentStart` hook. Check with
+`jq '.hooks.SubagentStart' ~/.claude/settings.json` — if it's missing, re-run
+`hooks/install-hooks.sh` and relaunch `claude`. On an older Claude Code that never sends that
+hook, everything else still works; you just don't get the number.
+
+If the number sits *on* the head rather than above it, raise `CLAWD_AGENT_YOFF` (`7` is right for
+`CLAWD_IMG_SCALE=0.3`). Too high and the box clips it.
+
+</details>
+
+<details>
+<summary><b>No clawd at all / it looks clipped</b></summary>
+
+<br>
+
+Confirm the frames are there: `ls ~/.config/sketchybar/clawd/frames`. If the sprite looks cut off,
+raise `CLAWD_IMG_WIDTH`. Seeing ▯ boxes instead? That's a glyph style without the right font —
+stick to the default `CLAWD_STYLE=image`, or point `CLAWD_ICON_FONT` at a
+[Nerd Font](https://www.nerdfonts.com/).
+
+</details>
+
+<details>
+<summary><b>A clawd is stuck working forever</b></summary>
+
+<br>
+
+Interrupting Claude with Esc doesn't fire `Stop`. The next notification recovers it, or it ages
+out after `CLAWD_SESSION_TTL`. To reset everything right now:
+
+```sh
+rm -f ~/.cache/sketchybar-clawd/sessions/* && sketchybar --trigger claude_state
+```
+
+Stray animation process? `pkill -f "clawd.plugin.sh __clawd_"` (a reload clears them too).
+
+</details>
+
+---
 
 ## Uninstall
 
@@ -236,30 +324,14 @@ Remove the hooks: `hooks/install-hooks.sh --remove`.
 ./uninstall.sh
 ```
 
-Removes the widget files, the `source` line, and the hooks (backups kept). Flags:
-`--keep-hooks`, `--config-dir DIR`, `--yes`.
-
-## Troubleshooting
-
-- **Mascot doesn't show (image mode):** make sure `frames/*.png` exist next to the scripts
-  (`ls ~/.config/sketchybar/clawd/frames`) and bump `CLAWD_IMG_WIDTH` if it looks clipped.
-- **Mascot shows boxes/▯ (glyph styles):** the font lacks the glyphs. Use the default
-  `CLAWD_STYLE=image`, point `CLAWD_ICON_FONT` at a Nerd Font, or use `CLAWD_STYLE=ascii`.
-- **No number badge while `/agents` are running:** your Claude Code must emit the `SubagentStart`
-  hook — check with `jq '.hooks.SubagentStart' ~/.claude/settings.json` after re-running
-  `hooks/install-hooks.sh`, and re-launch `claude` (hooks are read at startup). On a small sprite the
-  badge can sit on the head rather than above it — raise `CLAWD_AGENT_YOFF` (`7` suits
-  `CLAWD_IMG_SCALE=0.3`), but too high and the box clips it.
-- **No dots / nothing changes when Claude runs:** confirm the hooks are installed
-  (`jq .hooks ~/.claude/settings.json`) and `clawd.hook.sh` is executable. A session that
-  started *before* the hooks were installed won't appear until you relaunch `claude`. Test the
-  bar side directly: `echo '{"session_id":"test"}' | ~/.config/sketchybar/clawd/clawd.hook.sh working`.
-- **A dot stuck on `●`:** interrupting Claude (Esc) doesn't fire `Stop`; the next `idle_prompt`
-  notification recovers it, or it's pruned after `CLAWD_SESSION_TTL`. Reset all now:
-  `rm -f ~/.cache/sketchybar-clawd/sessions/* && sketchybar --trigger claude_state`.
-- **A stray animation process:** `pkill -f "clawd.plugin.sh __clawd_"` (matches both the hero and
-  herd workers; a reload also clears them).
+Removes the widget, the `source` line and the hooks — keeping a backup of each.
+Flags: `--keep-hooks`, `--config-dir DIR`, `--yes`.
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+<div align="center">
+<br>
+<sub>Built for people who keep too many Claude Code tabs open.</sub>
+</div>
