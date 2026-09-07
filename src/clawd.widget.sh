@@ -66,6 +66,7 @@ fi
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
   echo "CLAWD_BLINK_MS=$CLAWD_BLINK_MS"
   echo "CLAWD_ASK_GLYPH=$CLAWD_ASK_GLYPH"
+  echo "CLAWD_IMG_WIDTH=$CLAWD_IMG_WIDTH"
   echo "CLAWD_SHOW_AGENTS=$CLAWD_SHOW_AGENTS"
   echo "CLAWD_AGENT_MAX=$CLAWD_AGENT_MAX"
   echo "CLAWD_AGENT_TTL=$CLAWD_AGENT_TTL"
@@ -95,10 +96,10 @@ _add_mascot() {
                   background.image.drawing=on background.color=0x00000000 \
                   icon.font="$CLAWD_AGENT_FONT" icon.color="$CLAWD_AGENT_COLOR" \
                   icon.align=left icon.y_offset="$CLAWD_AGENT_YOFF" \
-                  icon.padding_left=3 icon.drawing=off \
+                  icon.padding_left=0 icon.padding_right=0 icon.drawing=off \
                   label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
                   label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
-                  label.padding_right=3 label.drawing=off \
+                  label.padding_left=0 label.padding_right=0 label.drawing=off \
                   width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" \
                   script="$_plugin" \
       --subscribe clawd claude_state
@@ -126,10 +127,10 @@ _add_slot() {  # $1 = slot index
                       background.image.drawing=on background.color=0x00000000 \
                       icon.font="$CLAWD_AGENT_FONT" icon.color="$CLAWD_AGENT_COLOR" \
                       icon.align=left icon.y_offset="$CLAWD_AGENT_YOFF" \
-                      icon.padding_left=3 icon.drawing=off \
+                      icon.padding_left=0 icon.padding_right=0 icon.drawing=off \
                       label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
                       label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
-                      label.padding_right=3 label.drawing=off \
+                      label.padding_left=0 label.padding_right=0 label.drawing=off \
                       width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" drawing=off
 }
 _add_more() {

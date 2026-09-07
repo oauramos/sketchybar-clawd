@@ -182,20 +182,32 @@ agent_badge() {  # $1 count
 }
 
 # Overlay an item's two badges: the agent count over the head and "?" when the
-# session wants you. Font/color/corner are baked in at item creation
-# (clawd.widget.sh); here we only toggle text. In image mode they get a corner
-# each (icon = count top-left, label = "?" top-right); glyph styles spend the
+# session wants you. Font/color are baked in at item creation (clawd.widget.sh);
+# here we set text and, in image mode, the width that pins each badge to its
+# corner (icon = count top-left, label = "?" top-right). Glyph styles spend the
 # icon on the mascot itself, so both share the label ("?", "2", "?2").
+#
+# SketchyBar only honors icon.align/label.align INSIDE a fixed width — an
+# auto-width badge just lands wherever the content block falls, which put the
+# count on the right, in the "?" corner. So hand each drawn badge an explicit
+# slice of the item: alone it takes the whole width, together they split it.
 set_badges() {  # $1 item, $2 state, $3 agent count
   _ask=""; [ "$2" = "waiting" ] && _ask="$CLAWD_ASK_GLYPH"
   _num="$(agent_badge "${3:-0}")"
+  _lw=""                                    # optional "label.width=N" (image only)
   if [ "$CLAWD_STYLE" = "image" ]; then
-    if [ -n "$_num" ]; then "$SB" --set "$1" icon="$_num" icon.drawing=on >/dev/null 2>&1
+    _iw="$CLAWD_IMG_WIDTH"; _lwn="$CLAWD_IMG_WIDTH"
+    if [ -n "$_num" ] && [ -n "$_ask" ]; then
+      _iw=$((CLAWD_IMG_WIDTH / 2)); _lwn=$((CLAWD_IMG_WIDTH - _iw))
+    fi
+    _lw="label.width=$_lwn"
+    if [ -n "$_num" ]; then "$SB" --set "$1" icon="$_num" icon.width="$_iw" icon.drawing=on >/dev/null 2>&1
     else "$SB" --set "$1" icon.drawing=off >/dev/null 2>&1; fi
   else
     _ask="$_ask$_num"
   fi
-  if [ -n "$_ask" ]; then "$SB" --set "$1" label="$_ask" label.drawing=on >/dev/null 2>&1
+  # shellcheck disable=SC2086  # $_lw is one optional bare argument, never empty-with-spaces
+  if [ -n "$_ask" ]; then "$SB" --set "$1" label="$_ask" $_lw label.drawing=on >/dev/null 2>&1
   else "$SB" --set "$1" label.drawing=off >/dev/null 2>&1; fi
 }
 
