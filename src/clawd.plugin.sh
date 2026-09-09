@@ -36,6 +36,7 @@ MULTI="$STATE_DIR/multi.state"          # herd worker: "<item> <frame0> <frame1>
 BOX="clawd_box"                          # bracket name (see clawd.widget.sh)
 SESS="$(clawd_sessions_dir)"; mkdir -p "$SESS"
 AGENTS="$(clawd_agents_dir)"            # agents/<session_id>/<agent_id> per live subagent
+OWNERS="$(clawd_owners_dir)"            # owners/<session_id> = "<pid> <start>" of its CLI
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/usr/bin:/bin:$PATH"
 SB="$(command -v sketchybar 2>/dev/null)" || exit 0
@@ -164,6 +165,36 @@ agent_count() {  # $1 session id -> N
   printf '%s' "$_an"
 }
 
+# A session whose Claude Code process is gone is a ghost: SessionEnd never fired
+# (window closed, SIGKILL, crash), so nothing ever deleted its state file and it
+# would keep drawing a clawd for a whole CLAWD_SESSION_TTL. Sessions with no
+# owner stamp — recorded before this existed, or whose CLI the hook couldn't
+# identify — fall back to the TTL alone.
+session_dead() {  # $1 session id -> 0 when its CLI is provably gone
+  [ "${CLAWD_PID_CHECK:-1}" = "1" ] || return 1
+  _of="$OWNERS/$1"; [ -f "$_of" ] || return 1
+  _opid=""; _ostart=""
+  read -r _opid _ostart <"$_of" 2>/dev/null
+  case "${_opid:-}" in "" | *[!0-9]*) return 1 ;; esac
+  _cur="$(ps -o lstart= -p "$_opid" 2>/dev/null | tr -s ' ' '_' | tr -d '\n')"
+  [ -n "$_cur" ] || return 0                 # pid gone -> the CLI died
+  [ "$_cur" = "$_ostart" ] || return 0       # pid recycled -> that is NOT our CLI
+  return 1
+}
+
+# Should the session file $1 stop being drawn? Too old, or its CLI is gone.
+session_stale() {  # $1 session file path
+  _mt="$(stat -f %m "$1" 2>/dev/null || echo "$now")"
+  [ $((now - _mt)) -gt "$CLAWD_SESSION_TTL" ] && return 0
+  session_dead "${1##*/}"
+}
+
+# Forget a session completely: its state, its owner stamp, its subagents.
+drop_session() {  # $1 session id
+  rm -f "$SESS/$1" "$OWNERS/$1"
+  rm -rf "$AGENTS/${1:?}"
+}
+
 # Claude Code's Stop hook fires while subagents are still running, so a session
 # can read "idle" with agents mid-flight. Agents at work = the clawd is at work.
 eff_state() {  # $1 raw state, $2 agent count -> state
@@ -235,8 +266,7 @@ hero_main() {
   n_wait=0; n_err=0; n_work=0; n_idle=0; total=0; n_agents=0
   for f in "$SESS"/*; do
     [ -f "$f" ] || continue
-    mt="$(stat -f %m "$f" 2>/dev/null || echo "$now")"
-    if [ $((now - mt)) -gt "$CLAWD_SESSION_TTL" ]; then rm -f "$f"; continue; fi
+    if session_stale "$f"; then drop_session "${f##*/}"; continue; fi
     ac="$(agent_count "${f##*/}")"          # file name = session id
     n_agents=$((n_agents + ac))             # hero badge = agents across all sessions
     case "$(eff_state "$(cat "$f" 2>/dev/null)" "$ac")" in
@@ -312,8 +342,7 @@ herd_main() {
   # sessions sorted by birth time (stable left->right order), pruning stale ones
   _list="$(for f in "$SESS"/*; do
     [ -f "$f" ] || continue
-    mt="$(stat -f %m "$f" 2>/dev/null || echo "$now")"
-    [ $((now - mt)) -gt "$CLAWD_SESSION_TTL" ] && { rm -f "$f"; continue; }
+    session_stale "$f" && { drop_session "${f##*/}"; continue; }
     printf '%s %s\n' "$(stat -f %B "$f" 2>/dev/null || echo 0)" "$f"
   done | sort -n | awk '{ print $2 }')"
   _count=0; for f in $_list; do _count=$((_count + 1)); done

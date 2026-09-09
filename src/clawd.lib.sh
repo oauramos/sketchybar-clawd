@@ -24,6 +24,12 @@ clawd_sessions_dir() {
 clawd_agents_dir() {
   printf '%s' "$(clawd_state_dir)/agents"
 }
+# One file per session naming the Claude Code process that owns it:
+# owners/<session_id> = "<pid> <process start time>". Lets the widget drop a
+# session the moment its CLI is gone, instead of waiting out CLAWD_SESSION_TTL.
+clawd_owners_dir() {
+  printf '%s' "$(clawd_state_dir)/owners"
+}
 
 # Map a session state to its status-strip glyph.
 clawd_dot() {
@@ -103,6 +109,11 @@ clawd_anim() {
 #     CLAWD_DOT_FONT     strip font     CLAWD_DOT_COLOR  strip color (default CLAWD_FG)
 #     CLAWD_STRIP_MAX    show at most N glyphs, then "+K" (default 8)
 #     CLAWD_SESSION_TTL  prune sessions with no update in N seconds (default 28800)
+#     CLAWD_PID_CHECK    1 (default) drop a session as soon as the Claude Code
+#                        process that owns it is gone — a CLI killed without a
+#                        SessionEnd hook (window closed, SIGKILL, crash) would
+#                        otherwise haunt the bar for a whole CLAWD_SESSION_TTL.
+#                        0 = trust the TTL alone.
 #   Box (bracket) appearance:
 #     CLAWD_BG / CLAWD_BORDER / CLAWD_BORDER_WIDTH / CLAWD_RADIUS / CLAWD_HEIGHT
 #     CLAWD_BORDER_WAIT  border color while a session is waiting (default Claude orange)
@@ -163,6 +174,7 @@ clawd_load_config() {
   CLAWD_DOT_COLOR="${CLAWD_DOT_COLOR:-$CLAWD_FG}"
   CLAWD_STRIP_MAX="${CLAWD_STRIP_MAX:-8}"
   CLAWD_SESSION_TTL="${CLAWD_SESSION_TTL:-28800}"
+  CLAWD_PID_CHECK="${CLAWD_PID_CHECK:-1}"
 
   # box
   CLAWD_BG="${CLAWD_BG:-0x22ffffff}"

@@ -20,6 +20,12 @@
 # that session (rendered as a number over the clawd's head). Both subagent events
 # carry the PARENT session_id, so agents land on the right clawd.
 #
+# Every state write also stamps owners/<session_id> with the pid of the Claude
+# Code process this hook is running under. SessionEnd is the only event that
+# removes a session, and a CLI that dies hard never fires it — so the widget
+# checks that pid and drops the orphan instead of drawing a ghost clawd until
+# CLAWD_SESSION_TTL runs out.
+#
 # Writes nothing to stdout (a hook's stdout is fed back to Claude); always exit 0.
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:$HOME/.nix-profile/bin:/usr/bin:/bin:$PATH"
@@ -29,6 +35,7 @@ SB="$(command -v sketchybar 2>/dev/null)" || exit 0
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar-clawd"
 SESS="$CACHE/sessions"
 AGENTS="$CACHE/agents"
+OWNERS="$CACHE/owners"
 mkdir -p "$SESS" 2>/dev/null
 
 # An id has to be a safe single path component: no separators, and never "." or
@@ -40,39 +47,98 @@ safe_id() {
   esac
 }
 
+# --- session owner (the Claude Code process this hook hangs off) -------------
+
+# Normalized start time of $1, empty when that pid is gone. Pairing it with the
+# pid is what makes a RECYCLED pid read as dead rather than reviving a ghost.
+proc_start() {  # $1 pid -> start stamp
+  ps -o lstart= -p "$1" 2>/dev/null | tr -s ' ' '_' | tr -d '\n'
+}
+
+# True when $1 looks like the Claude Code CLI: installed as `claude`, or a
+# JS runtime running it.
+is_claude() {  # $1 pid
+  _c="$(ps -o comm= -p "$1" 2>/dev/null)"
+  case "${_c##*/}" in
+    claude) return 0 ;;
+    node | bun | deno) ;;
+    *) return 1 ;;
+  esac
+  ps -o args= -p "$1" 2>/dev/null | grep -q claude
+}
+
+# The CLI exports its own pid to hooks; fall back to walking up from this hook,
+# which the CLI spawned. Failing both, print nothing — the widget then falls back
+# to ageing the session out on CLAWD_SESSION_TTL, exactly as it always did.
+owner_pid() {
+  case "${CLAUDE_PID:-}" in
+    "" | *[!0-9]*) ;;
+    *) is_claude "$CLAUDE_PID" && { printf '%s' "$CLAUDE_PID"; return 0; } ;;
+  esac
+  _p="${PPID:-$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')}"
+  _i=0
+  while [ "$_i" -lt 12 ]; do
+    case "${_p:-}" in "" | 0 | 1 | *[!0-9]*) return 1 ;; esac
+    is_claude "$_p" && { printf '%s' "$_p"; return 0; }
+    _p="$(ps -o ppid= -p "$_p" 2>/dev/null | tr -d ' ')"
+    _i=$((_i + 1))
+  done
+  return 1
+}
+
+# Stamp owners/<sid> with "<pid> <start>". An owner we cannot identify clears the
+# stamp rather than leaving a stale one behind — a wrong pid is worse than none,
+# since some unrelated process could keep the ghost alive (or kill a live clawd).
+record_owner() {
+  _op="$(owner_pid)" && _os="$(proc_start "$_op")" && [ -n "$_os" ] || {
+    rm -f "$OWNERS/$sid" 2>/dev/null
+    return 0
+  }
+  mkdir -p "$OWNERS" 2>/dev/null
+  printf '%s %s\n' "$_op" "$_os" >"$OWNERS/$sid"
+}
+
 json="$(cat 2>/dev/null)"
 sid="$(printf '%s' "$json" | jq -r '.session_id // empty' 2>/dev/null)"
 safe_id "$sid" || exit 0
 
+# Record a state AND re-stamp who owns the session, so the owner pid tracks a
+# resumed session onto its new CLI process.
+set_state() {  # $1 state
+  printf '%s' "$1" >"$SESS/$sid"
+  record_owner
+}
+
 case "${1:-}" in
   start)
-    printf 'idle' >"$SESS/$sid"
+    set_state idle
     # A fresh or resumed session has no live agents; a compacted one may still
     # have some running, so leave that registry alone.
     [ "$(printf '%s' "$json" | jq -r '.source // empty' 2>/dev/null)" = "compact" ] \
-      || rm -rf "$AGENTS/$sid" ;;
-  idle) printf 'idle' >"$SESS/$sid" ;;
-  working) printf 'working' >"$SESS/$sid" ;;
-  waiting) printf 'waiting' >"$SESS/$sid" ;;
-  error) printf 'error' >"$SESS/$sid" ;;
+      || rm -rf "$AGENTS/${sid:?}" ;;
+  idle) set_state idle ;;
+  working) set_state working ;;
+  waiting) set_state waiting ;;
+  error) set_state error ;;
   notification)
     type="$(printf '%s' "$json" | jq -r '.type // empty' 2>/dev/null)"
     case "$type" in
-      permission_prompt | elicitation_dialog) printf 'waiting' >"$SESS/$sid" ;;
-      idle_prompt) printf 'idle' >"$SESS/$sid" ;;
+      permission_prompt | elicitation_dialog) set_state waiting ;;
+      idle_prompt) set_state idle ;;
       *) exit 0 ;;
     esac ;;
   agent-start)
     aid="$(printf '%s' "$json" | jq -r '.agent_id // empty' 2>/dev/null)"
     safe_id "$aid" || exit 0
     mkdir -p "$AGENTS/$sid" 2>/dev/null
-    : >"$AGENTS/$sid/$aid" ;;
+    : >"$AGENTS/$sid/$aid"
+    record_owner ;;
   agent-stop)
     aid="$(printf '%s' "$json" | jq -r '.agent_id // empty' 2>/dev/null)"
     safe_id "$aid" || exit 0
     rm -f "$AGENTS/$sid/$aid"
     rmdir "$AGENTS/$sid" 2>/dev/null ;;   # tidy once the last agent is gone
-  end) rm -f "$SESS/$sid"; rm -rf "$AGENTS/$sid" ;;
+  end) rm -f "$SESS/$sid" "$OWNERS/$sid"; rm -rf "$AGENTS/${sid:?}" ;;
   *) exit 0 ;;
 esac
 

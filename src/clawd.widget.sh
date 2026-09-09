@@ -21,7 +21,7 @@ CLAWD_FRAMES_DIR="$CLAWD_DIR/frames"
 clawd_load_config
 
 _clawd_state="$(clawd_state_dir)"
-mkdir -p "$_clawd_state" "$(clawd_sessions_dir)" "$(clawd_agents_dir)"
+mkdir -p "$_clawd_state" "$(clawd_sessions_dir)" "$(clawd_agents_dir)" "$(clawd_owners_dir)"
 
 # Recolor the sprite per state (image mode). Each distinct color is rendered once
 # by the bundled generator into a cached dir keyed by color + dead-color + art

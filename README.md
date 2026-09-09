@@ -179,6 +179,7 @@ and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic
 | `CLAWD_DOT_SEP` / `_FONT` / `_COLOR` | `" "` / `Hack Nerd Font:Bold:14.0` / `$CLAWD_FG` | Dot strip styling |
 | `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` |
 | `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds (safety net) |
+| `CLAWD_PID_CHECK` | `1` | Drop a session the moment the Claude Code process that owns it is gone; `0` waits out the TTL instead |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box appearance |
 | `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border while a session is waiting |
 | `CLAWD_FG` | `0xfff5f5f7` | Foreground/accent color |
@@ -239,6 +240,9 @@ us a `session_id`, which is how one session becomes one clawd.
 - Subagents get one empty file each at `~/.cache/sketchybar-clawd/agents/<session_id>/<agent_id>`,
   so the file count *is* the badge. Both subagent hooks carry the **parent** session id, so agents
   land on the clawd that spawned them.
+- Every state write also stamps `~/.cache/sketchybar-clawd/owners/<session_id>` with the pid of the
+  Claude Code process the hook is running under, plus that process's start time — the start time is
+  what stops a recycled pid from reviving a ghost.
 - **The small lie:** Claude Code fires `Stop` *before* its subagents finish, so a session can claim
   it's idle with three agents still running. A session with live agents therefore keeps its working
   pose — the badge and the animation agree.
@@ -249,8 +253,10 @@ us a `session_id`, which is how one session becomes one clawd.
 - Animation comes from a small background worker swapping `background.image` between frames —
   SketchyBar's `update_freq` only goes down to one second, far too coarse for a hammer swing.
   Workers are tracked by PID file and stopped when nothing is moving.
-- Nothing leaks: a session killed without `SessionEnd` is pruned after `CLAWD_SESSION_TTL`, an
-  agent whose `SubagentStop` never arrived after `CLAWD_AGENT_TTL`.
+- Nothing leaks: a session whose CLI died without firing `SessionEnd` (window closed, `SIGKILL`,
+  crash) disappears on the next redraw, because its owner pid is gone. `CLAWD_SESSION_TTL` stays as
+  the backstop for sessions with no owner stamp; an agent whose `SubagentStop` never arrived is
+  dropped after `CLAWD_AGENT_TTL`.
 
 </details>
 
@@ -305,11 +311,13 @@ stick to the default `CLAWD_STYLE=image`, or point `CLAWD_ICON_FONT` at a
 
 <br>
 
-Interrupting Claude with Esc doesn't fire `Stop`. The next notification recovers it, or it ages
-out after `CLAWD_SESSION_TTL`. To reset everything right now:
+Interrupting Claude with Esc doesn't fire `Stop`. The next notification recovers it, it goes away
+with the session that owns it, or it ages out after `CLAWD_SESSION_TTL`. To reset everything right
+now:
 
 ```sh
-rm -f ~/.cache/sketchybar-clawd/sessions/* && sketchybar --trigger claude_state
+rm -f ~/.cache/sketchybar-clawd/sessions/* ~/.cache/sketchybar-clawd/owners/* \
+  && sketchybar --trigger claude_state
 ```
 
 Stray animation process? `pkill -f "clawd.plugin.sh __clawd_"` (a reload clears them too).
