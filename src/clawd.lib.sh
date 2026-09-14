@@ -109,6 +109,8 @@ clawd_anim() {
 #     CLAWD_DOT_FONT     strip font     CLAWD_DOT_COLOR  strip color (default CLAWD_FG)
 #     CLAWD_STRIP_MAX    show at most N glyphs, then "+K" (default 8)
 #     CLAWD_SESSION_TTL  prune sessions with no update in N seconds (default 28800)
+#                        — only those the widget cannot tie to a live Claude Code
+#                        process; a stamped session stays as long as its CLI runs
 #     CLAWD_PID_CHECK    1 (default) drop a session as soon as the Claude Code
 #                        process that owns it is gone — a CLI killed without a
 #                        SessionEnd hook (window closed, SIGKILL, crash) would

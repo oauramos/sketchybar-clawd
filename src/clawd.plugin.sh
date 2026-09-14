@@ -170,23 +170,28 @@ agent_count() {  # $1 session id -> N
 # would keep drawing a clawd for a whole CLAWD_SESSION_TTL. Sessions with no
 # owner stamp — recorded before this existed, or whose CLI the hook couldn't
 # identify — fall back to the TTL alone.
-session_dead() {  # $1 session id -> 0 when its CLI is provably gone
-  [ "${CLAWD_PID_CHECK:-1}" = "1" ] || return 1
-  _of="$OWNERS/$1"; [ -f "$_of" ] || return 1
+session_liveness() {  # $1 session id -> 0 CLI gone, 1 CLI alive, 2 no usable stamp
+  [ "${CLAWD_PID_CHECK:-1}" = "1" ] || return 2
+  _of="$OWNERS/$1"; [ -f "$_of" ] || return 2
   _opid=""; _ostart=""
   read -r _opid _ostart <"$_of" 2>/dev/null
-  case "${_opid:-}" in "" | *[!0-9]*) return 1 ;; esac
+  case "${_opid:-}" in "" | *[!0-9]*) return 2 ;; esac
   _cur="$(ps -o lstart= -p "$_opid" 2>/dev/null | tr -s ' ' '_' | tr -d '\n')"
   [ -n "$_cur" ] || return 0                 # pid gone -> the CLI died
   [ "$_cur" = "$_ostart" ] || return 0       # pid recycled -> that is NOT our CLI
   return 1
 }
 
-# Should the session file $1 stop being drawn? Too old, or its CLI is gone.
+# Should the session file $1 stop being drawn? When the session carries an owner
+# stamp, the process is the authority: a CLI still running is a session still
+# open, however long it has sat idle — a clawd parked asleep for a day is right,
+# an empty slot for a live session is not. The TTL only ages out sessions we
+# cannot tie to a process.
 session_stale() {  # $1 session file path
+  session_liveness "${1##*/}"
+  case $? in 0) return 0 ;; 1) return 1 ;; esac
   _mt="$(stat -f %m "$1" 2>/dev/null || echo "$now")"
-  [ $((now - _mt)) -gt "$CLAWD_SESSION_TTL" ] && return 0
-  session_dead "${1##*/}"
+  [ $((now - _mt)) -gt "$CLAWD_SESSION_TTL" ]
 }
 
 # Forget a session completely: its state, its owner stamp, its subagents.

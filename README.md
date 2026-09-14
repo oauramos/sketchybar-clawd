@@ -178,7 +178,7 @@ and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic
 | `CLAWD_DOT_IDLE` / `_WORK` / `_WAIT` / `_ERR` | `○` `●` `◐` `✗` | Dot glyphs |
 | `CLAWD_DOT_SEP` / `_FONT` / `_COLOR` | `" "` / `Hack Nerd Font:Bold:14.0` / `$CLAWD_FG` | Dot strip styling |
 | `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` |
-| `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds (safety net) |
+| `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds — only when it has no owner pid to check; a session whose CLI is still running stays however long it idles |
 | `CLAWD_PID_CHECK` | `1` | Drop a session the moment the Claude Code process that owns it is gone; `0` waits out the TTL instead |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box appearance |
 | `CLAWD_BORDER_WAIT` | `0xffd97757` | Box border while a session is waiting |
@@ -312,8 +312,8 @@ stick to the default `CLAWD_STYLE=image`, or point `CLAWD_ICON_FONT` at a
 <br>
 
 Interrupting Claude with Esc doesn't fire `Stop`. The next notification recovers it, it goes away
-with the session that owns it, or it ages out after `CLAWD_SESSION_TTL`. To reset everything right
-now:
+with the session that owns it, or — when no owner pid was recorded — it ages out after
+`CLAWD_SESSION_TTL`. To reset everything right now:
 
 ```sh
 rm -f ~/.cache/sketchybar-clawd/sessions/* ~/.cache/sketchybar-clawd/owners/* \
