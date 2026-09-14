@@ -67,14 +67,33 @@ is_claude() {  # $1 pid
   ps -o args= -p "$1" 2>/dev/null | grep -q claude
 }
 
-# The CLI exports its own pid to hooks; fall back to walking up from this hook,
-# which the CLI spawned. Failing both, print nothing — the widget then falls back
-# to ageing the session out on CLAWD_SESSION_TTL, exactly as it always did.
+# Claude Code registers every running CLI at ~/.claude/sessions/<pid>.json,
+# carrying the session id it serves — a direct session -> pid map that needs no
+# knowledge of how this hook was spawned. grep narrows the candidates to the
+# files that mention $sid at all (safe_id already made it a fixed string), jq
+# then confirms the match is the sessionId field and not some other value.
+registry_pid() {
+  _reg="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions"
+  [ -d "$_reg" ] || return 1
+  for _rf in $(grep -lF -- "$sid" "$_reg"/*.json 2>/dev/null); do
+    _rp="${_rf##*/}"; _rp="${_rp%.json}"
+    case "$_rp" in "" | *[!0-9]*) continue ;; esac
+    [ "$(jq -r '.sessionId // empty' "$_rf" 2>/dev/null)" = "$sid" ] || continue
+    is_claude "$_rp" && { printf '%s' "$_rp"; return 0; }
+  done
+  return 1
+}
+
+# The CLI exports its own pid to hooks; next best is its session registry; last
+# resort is walking up from this hook, which the CLI spawned. Failing all three,
+# print nothing — the widget then falls back to ageing the session out on
+# CLAWD_SESSION_TTL, exactly as it always did.
 owner_pid() {
   case "${CLAUDE_PID:-}" in
     "" | *[!0-9]*) ;;
     *) is_claude "$CLAUDE_PID" && { printf '%s' "$CLAUDE_PID"; return 0; } ;;
   esac
+  registry_pid && return 0
   _p="${PPID:-$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')}"
   _i=0
   while [ "$_i" -lt 12 ]; do

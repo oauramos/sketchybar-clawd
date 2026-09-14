@@ -242,7 +242,9 @@ us a `session_id`, which is how one session becomes one clawd.
   land on the clawd that spawned them.
 - Every state write also stamps `~/.cache/sketchybar-clawd/owners/<session_id>` with the pid of the
   Claude Code process the hook is running under, plus that process's start time — the start time is
-  what stops a recycled pid from reviving a ghost.
+  what stops a recycled pid from reviving a ghost. The pid comes from `CLAUDE_PID`, else from Claude
+  Code's own registry at `~/.claude/sessions/<pid>.json` (which names the session each CLI serves),
+  else from walking up the hook's process ancestry.
 - **The small lie:** Claude Code fires `Stop` *before* its subagents finish, so a session can claim
   it's idle with three agents still running. A session with live agents therefore keeps its working
   pose — the badge and the animation agree.
