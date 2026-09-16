@@ -30,6 +30,20 @@ clawd_agents_dir() {
 clawd_owners_dir() {
   printf '%s' "$(clawd_state_dir)/owners"
 }
+# The runtime cap: `sketchybar-clawd N` writes N here and it overrides
+# CLAWD_HERD_MAX (herd) / CLAWD_STRIP_MAX (hero) until `sketchybar-clawd reset`
+# removes it. Survives reloads, since the rc never touches it.
+clawd_cap_file() {
+  printf '%s' "$(clawd_state_dir)/cap"
+}
+# Echo the runtime cap, or nothing when unset or unreadable (garbage in the file
+# must not blank the bar — the rc value simply stays in force).
+clawd_cap_override() {
+  _f="$(clawd_cap_file)"; [ -f "$_f" ] || return 0
+  _v="$(tr -d '[:space:]' <"$_f" 2>/dev/null)"
+  case "$_v" in "" | *[!0-9]*) return 0 ;; esac
+  [ "$_v" -ge 1 ] && printf '%s' "$_v"
+}
 
 # Map a session state to its status-strip glyph.
 clawd_dot() {
@@ -73,6 +87,8 @@ clawd_anim() {
 #     CLAWD_MODE         herd (default, one clawd per session) | hero (one most-urgent
 #                        mascot + a glyph strip). herd needs CLAWD_STYLE=image.
 #     CLAWD_HERD_MAX     clawds shown before collapsing to "+K" (default 6)
+#     CLAWD_HERD_POOL    slot items created up front (default 24) — the ceiling
+#                        `sketchybar-clawd N` can raise the cap to without a reload
 #     CLAWD_HERD_MS      herd animation frame interval ms (default 180)
 #   Mascot (the clawd sprite):
 #     CLAWD_STYLE        image (default, pixel-art sprite) | blocks | braille | ascii
@@ -127,6 +143,7 @@ clawd_load_config() {
   # most-urgent mascot + a glyph strip. (herd needs image style; else falls back.)
   CLAWD_MODE="${CLAWD_MODE:-herd}"
   CLAWD_HERD_MAX="${CLAWD_HERD_MAX:-6}"   # clawds shown before collapsing to "+K"
+  CLAWD_HERD_POOL="${CLAWD_HERD_POOL:-24}" # slots built at load; the runtime cap's ceiling
   CLAWD_HERD_MS="${CLAWD_HERD_MS:-180}"   # herd animation frame interval (ms)
 
   CLAWD_FG="${CLAWD_FG:-0xfff5f5f7}"

@@ -7,6 +7,8 @@
 #           arm-up waving, dead, asleep), capped at CLAWD_HERD_MAX then "+K".
 #   hero  — a single mascot reflecting the most-urgent session, plus a glyph
 #           strip with one glyph per session, urgency-sorted and capped.
+# Either cap yields to the runtime one `sketchybar-clawd N` leaves in the state
+# dir (see clawd_cap_override), so the herd can grow or shrink without a reload.
 # Either way the box border turns orange while any session is waiting on you, and
 # a session running subagents wears their count as a badge over its head.
 #
@@ -29,6 +31,11 @@ STATE_DIR="$(clawd_state_dir)"
 [ -f "$STATE_DIR/clawd.env" ] && . "$STATE_DIR/clawd.env"
 clawd_load_config
 mkdir -p "$STATE_DIR"
+# `sketchybar-clawd N` overrides both caps. The herd can't outgrow the slots the
+# widget created (CLAWD_HERD_POOL); the command reloads when N needs more.
+_cap="$(clawd_cap_override)"
+[ -z "$_cap" ] || { CLAWD_HERD_MAX="$_cap"; CLAWD_STRIP_MAX="$_cap"; }
+[ "$CLAWD_HERD_MAX" -le "$CLAWD_HERD_POOL" ] || CLAWD_HERD_MAX="$CLAWD_HERD_POOL"
 PIDFILE="$STATE_DIR/anim.pid"
 ANIM_STATE="$STATE_DIR/anim.state"      # hero worker: line1 interval s, line2 frames
 HPIDFILE="$STATE_DIR/herd.pid"
@@ -391,7 +398,10 @@ herd_main() {
     img_set clawd.s0 "$BLINK_OPEN"; set_badges clawd.s0 "ok" 0
     "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
   fi
-  while [ "$_i" -lt "$CLAWD_HERD_MAX" ]; do "$SB" --set "clawd.s$_i" drawing=off >/dev/null 2>&1; _i=$((_i + 1)); done
+  # Hide the rest of the pool in ONE call — it can be a couple of dozen slots.
+  set --
+  while [ "$_i" -lt "$CLAWD_HERD_POOL" ]; do set -- "$@" --set "clawd.s$_i" drawing=off; _i=$((_i + 1)); done
+  [ "$#" -eq 0 ] || "$SB" "$@" >/dev/null 2>&1
 
   _over=$((_count - _shown))
   if [ "$_over" -gt 0 ]; then "$SB" --set clawd.more label="+$_over" label.drawing=on drawing=on >/dev/null 2>&1

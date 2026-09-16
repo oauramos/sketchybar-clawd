@@ -4,7 +4,9 @@
 #
 # Add ONE line to your sketchybarrc (after `sketchybar --bar ...`):
 #     source "$CONFIG_DIR/clawd/clawd.widget.sh"
-# Optionally export CLAWD_* knobs before it (see clawd.lib.sh / README).
+# Optionally export CLAWD_* knobs before it (see clawd.lib.sh / README). How many
+# clawds show before "+K" can also be changed later, without a reload, with
+# `sketchybar-clawd N` (clawd.ctl.sh).
 
 # Resolve this file's own directory across sh/bash/zsh (zsh-only syntax hidden
 # behind eval). Falls back to $CONFIG_DIR/clawd, which SketchyBar always sets.
@@ -56,11 +58,20 @@ if [ "$CLAWD_STYLE" = "image" ]; then
   clawd_load_config
 fi
 
+# Herd slots are bar items, and items can only be added from here — so build the
+# pool up front: at least CLAWD_HERD_POOL, and never fewer than the rc cap or a
+# runtime cap (`sketchybar-clawd N`) already asks for. Unused slots stay
+# drawing=off; the plugin decides how many to fill.
+_cap="$(clawd_cap_override)"
+[ "$CLAWD_HERD_POOL" -ge "$CLAWD_HERD_MAX" ] || CLAWD_HERD_POOL="$CLAWD_HERD_MAX"
+[ -z "$_cap" ] || [ "$CLAWD_HERD_POOL" -ge "$_cap" ] || CLAWD_HERD_POOL="$_cap"
+
 # Persist resolved config for the daemon-spawned plugin (rc exports don't reach it).
 {
   echo "CLAWD_STYLE=$CLAWD_STYLE"
   echo "CLAWD_MODE=$CLAWD_MODE"
   echo "CLAWD_HERD_MAX=$CLAWD_HERD_MAX"
+  echo "CLAWD_HERD_POOL=$CLAWD_HERD_POOL"
   echo "CLAWD_HERD_MS=$CLAWD_HERD_MS"
   echo "CLAWD_FG=$CLAWD_FG"
   echo "CLAWD_FRAME_MS=$CLAWD_FRAME_MS"
@@ -149,9 +160,9 @@ _add_herd() {
   # first to keep visual order s0,s1,…,+K from left to right.
   if [ "$_pos" = "right" ]; then
     _add_more
-    _k=$((CLAWD_HERD_MAX - 1)); while [ "$_k" -ge 0 ]; do _add_slot "$_k"; _k=$((_k - 1)); done
+    _k=$((CLAWD_HERD_POOL - 1)); while [ "$_k" -ge 0 ]; do _add_slot "$_k"; _k=$((_k - 1)); done
   else
-    _k=0; while [ "$_k" -lt "$CLAWD_HERD_MAX" ]; do _add_slot "$_k"; _k=$((_k + 1)); done
+    _k=0; while [ "$_k" -lt "$CLAWD_HERD_POOL" ]; do _add_slot "$_k"; _k=$((_k + 1)); done
     _add_more
   fi
 }
@@ -162,7 +173,7 @@ if [ "$CLAWD_MODE" = "herd" ] && [ "$CLAWD_STYLE" = "image" ]; then
   _add_herd
   # explicit member list (sketchybar's regex doesn't do alternation)
   _box_members="clawd.more"
-  _k=0; while [ "$_k" -lt "$CLAWD_HERD_MAX" ]; do _box_members="clawd.s$_k $_box_members"; _k=$((_k + 1)); done
+  _k=0; while [ "$_k" -lt "$CLAWD_HERD_POOL" ]; do _box_members="clawd.s$_k $_box_members"; _k=$((_k + 1)); done
 else
   # hero — visual order left -> right: [clawd] [dots]. Right lays out right-to-left.
   if [ "$_pos" = "right" ]; then

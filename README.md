@@ -67,10 +67,12 @@ cd sketchybar-clawd
 The installer asks before each step, backs up anything it touches, and can be re-run safely:
 
 1. Copies the widget to `~/.config/sketchybar/clawd/`
-2. Adds one line to your `sketchybarrc` — `source "$CONFIG_DIR/clawd/clawd.widget.sh"`
-3. Merges the Claude Code hooks into `~/.claude/settings.json` (this is what makes the clawds
+2. Links the `sketchybar-clawd` command into `~/.local/bin` (to change how many clawds you see
+   without touching your config — see below)
+3. Adds one line to your `sketchybarrc` — `source "$CONFIG_DIR/clawd/clawd.widget.sh"`
+4. Merges the Claude Code hooks into `~/.claude/settings.json` (this is what makes the clawds
    move — it only *adds* to that file, your own hooks stay put)
-4. Reloads SketchyBar
+5. Reloads SketchyBar
 
 **Then quit and relaunch `claude`.** Hooks are read when a session starts, so tabs you already
 have open won't show up until you restart them.
@@ -91,7 +93,9 @@ echo '{"session_id":"test"}' | ~/.config/sketchybar/clawd/clawd.hook.sh end     
 <br>
 
 Installer flags: `--no-hooks`, `--with-hooks`, `--yes` (non-interactive), `--config-dir DIR`,
-`--link` (symlink instead of copy — handy while hacking on it), `--print-only` (dry run).
+`--bin-dir DIR` (where the `sketchybar-clawd` command goes; default `~/.local/bin`),
+`--no-command`, `--link` (symlink instead of copy — handy while hacking on it), `--print-only`
+(dry run).
 
 By hand, if you prefer:
 
@@ -99,12 +103,14 @@ By hand, if you prefer:
 cp -r src ~/.config/sketchybar/clawd
 chmod +x ~/.config/sketchybar/clawd/*.sh
 echo 'source "$CONFIG_DIR/clawd/clawd.widget.sh"' >> ~/.config/sketchybar/sketchybarrc
+ln -s ~/.config/sketchybar/clawd/clawd.ctl.sh ~/.local/bin/sketchybar-clawd   # the command
 sketchybar --reload
 hooks/install-hooks.sh --hook ~/.config/sketchybar/clawd/clawd.hook.sh   # the automatic states
 ```
 
 If your `sketchybarrc` is read-only (Nix, home-manager, a dotfiles repo), the installer won't
-fight you — it prints the line to add declaratively and moves on.
+fight you — it prints the line to add declaratively and moves on. The command is just a symlink
+to `clawd.ctl.sh`, so declare that the same way (it finds the widget through the link).
 
 Hooks for one project only: `hooks/install-hooks.sh --project`.
 Prefer to paste them yourself? See [`hooks/settings.snippet.json`](hooks/settings.snippet.json).
@@ -149,6 +155,19 @@ source "$CONFIG_DIR/clawd/clawd.widget.sh"
 Recoloring is automatic: each color is rendered once by the bundled generator (needs `python3`)
 and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic Claude orange.
 
+**How many clawds before `+K`** — six by default (`CLAWD_HERD_MAX`). Change it from the
+terminal, any time, no config edit:
+
+```sh
+sketchybar-clawd 12       # show up to 12 clawds, fold the rest into +K
+sketchybar-clawd          # what's showing right now, and how many are folded
+sketchybar-clawd reset    # back to your sketchybarrc's value
+```
+
+It applies instantly and survives reloads. The widget pre-builds `CLAWD_HERD_POOL` slots (24),
+so any number up to that is a redraw; ask for more and the command reloads SketchyBar once to
+grow the pool. In hero mode the same command sets the length of the dot strip.
+
 <details>
 <summary><b>Every setting</b> — the full table</summary>
 
@@ -157,7 +176,8 @@ and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic
 | Variable | Default | What it does |
 |----------|---------|--------------|
 | `CLAWD_MODE` | `herd` | `herd` (one clawd per session) or `hero` (one mascot + a dot strip) |
-| `CLAWD_HERD_MAX` | `6` | Clawds shown before collapsing to `+K` |
+| `CLAWD_HERD_MAX` | `6` | Clawds shown before collapsing to `+K` — `sketchybar-clawd N` overrides it at runtime |
+| `CLAWD_HERD_POOL` | `24` | Slot items built at load; the highest `sketchybar-clawd N` that applies without a reload |
 | `CLAWD_HERD_MS` | `180` | Herd animation frame interval (ms) |
 | `CLAWD_STYLE` | `image` | `image` (pixel sprite), or the glyph styles `blocks` / `braille` / `ascii` (these force `hero`) |
 | `CLAWD_POSITION` | `right` | `left`, `center`, `right` |
@@ -177,7 +197,7 @@ and cached in `~/.cache/sketchybar-clawd/`. Set `CLAWD_COLOR=D97757` for classic
 | `CLAWD_SHOW_DOTS` | `1` | Hero mode: show the dot strip |
 | `CLAWD_DOT_IDLE` / `_WORK` / `_WAIT` / `_ERR` | `○` `●` `◐` `✗` | Dot glyphs |
 | `CLAWD_DOT_SEP` / `_FONT` / `_COLOR` | `" "` / `Hack Nerd Font:Bold:14.0` / `$CLAWD_FG` | Dot strip styling |
-| `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` |
+| `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` — `sketchybar-clawd N` overrides it too |
 | `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds — only when it has no owner pid to check; a session whose CLI is still running stays however long it idles |
 | `CLAWD_PID_CHECK` | `1` | Drop a session the moment the Claude Code process that owns it is gone; `0` waits out the TTL instead |
 | `CLAWD_BG` / `CLAWD_BORDER` / `CLAWD_BORDER_WIDTH` / `CLAWD_RADIUS` / `CLAWD_HEIGHT` | — | Box appearance |
@@ -252,6 +272,10 @@ us a `session_id`, which is how one session becomes one clawd.
   per session, sorted by start time, capped then `+K`) or the hero (most urgent session + the dot
   strip). Either way it paints the box border orange if anyone is waiting, and hangs the two badges
   on each clawd: the agent count top-left, the `?` top-right.
+- `sketchybar-clawd N` is `clawd.ctl.sh`: it writes `N` to `~/.cache/sketchybar-clawd/cap` and fires
+  the event. Both the widget and the plugin read that file over `CLAWD_HERD_MAX`, so it outlives a
+  reload. Bar items can only be added from the rc, which is why the widget builds a pool of
+  `CLAWD_HERD_POOL` hidden slots up front — the plugin fills as many as the cap allows.
 - Animation comes from a small background worker swapping `background.image` between frames —
   SketchyBar's `update_freq` only goes down to one second, far too coarse for a hammer swing.
   Workers are tracked by PID file and stopped when nothing is moving.
@@ -309,6 +333,17 @@ stick to the default `CLAWD_STYLE=image`, or point `CLAWD_ICON_FONT` at a
 </details>
 
 <details>
+<summary><b><code>sketchybar-clawd: command not found</code></b></summary>
+
+<br>
+
+The installer links it into `~/.local/bin` — make sure that's on your `PATH`, or re-run with
+`--bin-dir` pointing somewhere that is. Until then it also works by its full path:
+`~/.config/sketchybar/clawd/clawd.ctl.sh 12`.
+
+</details>
+
+<details>
 <summary><b>A clawd is stuck working forever</b></summary>
 
 <br>
@@ -334,8 +369,8 @@ Stray animation process? `pkill -f "clawd.plugin.sh __clawd_"` (a reload clears 
 ./uninstall.sh
 ```
 
-Removes the widget, the `source` line and the hooks — keeping a backup of each.
-Flags: `--keep-hooks`, `--config-dir DIR`, `--yes`.
+Removes the widget, the `sketchybar-clawd` command link, the `source` line and the hooks —
+keeping a backup of each. Flags: `--keep-hooks`, `--config-dir DIR`, `--bin-dir DIR`, `--yes`.
 
 ## License
 
