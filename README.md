@@ -43,10 +43,15 @@ glows orange so you catch it out of the corner of your eye.
 | 🔢 **a number over its head** | that many subagents (`/agents`) are running for it | `SubagentStart` / `SubagentStop` |
 | ❓ **wide awake with a ?** | it needs you — permission prompt or dialog | `Notification` |
 | 💤 **curled up asleep** | turn finished, nothing to do | `Stop` |
+| 🛌 **asleep, with a number over its head** | that many sessions have slept for over an hour — they share this one clawd instead of one each | an hour with no activity |
 | 💀 **X eyes, keeled over** | the turn died on an API error | `StopFailure` |
 
 Whenever **any** session is waiting, the whole box border turns orange. That's the part you'll
 actually notice while looking somewhere else.
+
+Sessions you forgot about don't pile up either: after an hour asleep a session gives up its own
+clawd and joins the hibernation clawd at the end of the line. Send it a prompt and it's back in
+its old spot.
 
 > No sessions running at all? A single clawd sits there and blinks at you — a quiet
 > "nobody home, start me".
@@ -166,7 +171,8 @@ sketchybar-clawd reset    # back to your sketchybarrc's value
 
 It applies instantly and survives reloads. The widget pre-builds `CLAWD_HERD_POOL` slots (24),
 so any number up to that is a redraw; ask for more and the command reloads SketchyBar once to
-grow the pool. In hero mode the same command sets the length of the dot strip.
+grow the pool. In hero mode the same command sets the length of the dot strip. Hibernating
+sessions never count toward it — they share one clawd outside the cap.
 
 <details>
 <summary><b>Every setting</b> — the full table</summary>
@@ -193,9 +199,11 @@ grow the pool. In hero mode the same command sets the length of the dot strip.
 | `CLAWD_AGENT_COLOR` / `_FONT` / `_YOFF` | same as the `?` badge | Agent-count badge look; raise `_YOFF` (try `7`) if the number sits *on* the head instead of above it |
 | `CLAWD_AGENT_MAX` | `9` | Counts above this read `9+` |
 | `CLAWD_AGENT_TTL` | `3600` | Forget an agent whose `SubagentStop` never arrived, after N seconds |
+| `CLAWD_HIBERNATE_AFTER` | `3600` | Seconds a session sleeps before it folds into the shared hibernation clawd, which wears their count like the agent badge (`0` = never). While on, the bar also redraws once a minute |
 | `CLAWD_ASK_GLYPH` / `_COLOR` / `_FONT` / `_YOFF` | `?` / `$CLAWD_FG` / `Hack Nerd Font:Bold:9.0` / `5` | The "needs you" badge |
 | `CLAWD_SHOW_DOTS` | `1` | Hero mode: show the dot strip |
 | `CLAWD_DOT_IDLE` / `_WORK` / `_WAIT` / `_ERR` | `○` `●` `◐` `✗` | Dot glyphs |
+| `CLAWD_DOT_HIBERNATE` | `z` | Hero mode: hibernating sessions fold into one strip entry, `z3` |
 | `CLAWD_DOT_SEP` / `_FONT` / `_COLOR` | `" "` / `Hack Nerd Font:Bold:14.0` / `$CLAWD_FG` | Dot strip styling |
 | `CLAWD_STRIP_MAX` | `8` | Dots shown before collapsing to `+K` — `sketchybar-clawd N` overrides it too |
 | `CLAWD_SESSION_TTL` | `28800` | Drop a session with no update for N seconds — only when it has no owner pid to check; a session whose CLI is still running stays however long it idles |
@@ -256,7 +264,8 @@ us a `session_id`, which is how one session becomes one clawd.
 <br>
 
 - `clawd.hook.sh` writes each session's state to `~/.cache/sketchybar-clawd/sessions/<session_id>`
-  and fires SketchyBar's `claude_state` event. That's the entire bridge — no daemon, no polling.
+  and fires SketchyBar's `claude_state` event. That's the entire bridge — no daemon, and the
+  only timer is a once-a-minute redraw for hibernation (below).
 - Subagents get one empty file each at `~/.cache/sketchybar-clawd/agents/<session_id>/<agent_id>`,
   so the file count *is* the badge. Both subagent hooks carry the **parent** session id, so agents
   land on the clawd that spawned them.
@@ -272,6 +281,12 @@ us a `session_id`, which is how one session becomes one clawd.
   per session, sorted by start time, capped then `+K`) or the hero (most urgent session + the dot
   strip). Either way it paints the box border orange if anyone is waiting, and hangs the two badges
   on each clawd: the agent count top-left, the `?` top-right.
+- **Hibernation** runs off each session file's mtime: every state change rewrites it, so it marks
+  the last time the session did anything. Two things are careful not to fake that — the "still
+  idle" nudge Claude Code sends a minute into a nap leaves an idle file alone, and a subagent
+  finishing touches it (since `Stop` fired before the agents were done). An idle session older
+  than `CLAWD_HIBERNATE_AFTER` leaves the line for the `clawd.hibernate` item. Merely staying
+  asleep fires no hook, so with hibernation on the driver item gets `update_freq=60` to notice.
 - `sketchybar-clawd N` is `clawd.ctl.sh`: it writes `N` to `~/.cache/sketchybar-clawd/cap` and fires
   the event. Both the widget and the plugin read that file over `CLAWD_HERD_MAX`, so it outlives a
   reload. Bar items can only be added from the rc, which is why the widget builds a pool of

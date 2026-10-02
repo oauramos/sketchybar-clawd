@@ -10,7 +10,9 @@
 # Either cap yields to the runtime one `sketchybar-clawd N` leaves in the state
 # dir (see clawd_cap_override), so the herd can grow or shrink without a reload.
 # Either way the box border turns orange while any session is waiting on you, and
-# a session running subagents wears their count as a badge over its head.
+# a session running subagents wears their count as a badge over its head. Sessions
+# idle past CLAWD_HIBERNATE_AFTER fold into ONE hibernation clawd (hero: one
+# "z<N>" strip entry) wearing their count the same way, outside the cap.
 #
 # Smooth motion comes from a background worker (this script re-executed as
 # `__clawd_anim__` / `__clawd_herd_anim__`), because SketchyBar's update_freq is
@@ -275,13 +277,16 @@ now="$(date +%s)"
 # =============================================================================
 hero_main() {
   stop_herd
-  n_wait=0; n_err=0; n_work=0; n_idle=0; total=0; n_agents=0
+  n_wait=0; n_err=0; n_work=0; n_idle=0; total=0; n_agents=0; n_hib=0
   for f in "$SESS"/*; do
     [ -f "$f" ] || continue
     if session_stale "$f"; then drop_session "${f##*/}"; continue; fi
     ac="$(agent_count "${f##*/}")"          # file name = session id
     n_agents=$((n_agents + ac))             # hero badge = agents across all sessions
-    case "$(eff_state "$(cat "$f" 2>/dev/null)" "$ac")" in
+    st="$(eff_state "$(cat "$f" 2>/dev/null)" "$ac")"
+    # long asleep -> one shared "z<count>" at the end of the strip, not a dot each
+    if clawd_hibernating "$f" "$st" "$now"; then n_hib=$((n_hib + 1)); continue; fi
+    case "$st" in
       waiting) n_wait=$((n_wait + 1)) ;;
       error)   n_err=$((n_err + 1)) ;;
       working) n_work=$((n_work + 1)) ;;
@@ -292,7 +297,7 @@ hero_main() {
 
   # No sessions at all (image mode): a single neutral-white clawd just blinks as
   # a "start me" call to action — no sleep pose, no props, no status strip.
-  if [ "$total" -eq 0 ] && [ "$CLAWD_STYLE" = "image" ]; then
+  if [ "$total" -eq 0 ] && [ "$n_hib" -eq 0 ] && [ "$CLAWD_STYLE" = "image" ]; then
     [ "${CLAWD_SHOW_DOTS:-1}" = "1" ] && "$SB" --set clawd.sessions label="" label.drawing=off >/dev/null 2>&1
     set_border "ok"; set_badges clawd "ok" 0
     if printf '%s\n%s\n' "$BLINK_S" "$BLINK_FRAMES" >"$ANIM_STATE.tmp" 2>/dev/null \
@@ -326,6 +331,7 @@ hero_main() {
   strip_add "$CLAWD_DOT_IDLE" "$n_idle"
   _hidden=$((total - STRIP_SHOWN))
   [ "$_hidden" -gt 0 ] && STRIP_OUT="$STRIP_OUT$CLAWD_DOT_SEP+$_hidden"
+  [ "$n_hib" -gt 0 ] && STRIP_OUT="${STRIP_OUT:+$STRIP_OUT$CLAWD_DOT_SEP}$CLAWD_DOT_HIBERNATE$n_hib"
   if [ "${CLAWD_SHOW_DOTS:-1}" = "1" ]; then
     "$SB" --set clawd.sessions label="$STRIP_OUT" label.drawing=on >/dev/null 2>&1
   fi
@@ -352,18 +358,33 @@ hero_main() {
 herd_main() {
   stop_anim
   # sessions sorted by birth time (stable left->right order), pruning stale ones
-  _list="$(for f in "$SESS"/*; do
+  _all="$(for f in "$SESS"/*; do
     [ -f "$f" ] || continue
     session_stale "$f" && { drop_session "${f##*/}"; continue; }
     printf '%s %s\n' "$(stat -f %B "$f" 2>/dev/null || echo 0)" "$f"
   done | sort -n | awk '{ print $2 }')"
+  # Sessions asleep past CLAWD_HIBERNATE_AFTER leave the line: they share the one
+  # hibernation clawd, which wears their count, instead of holding a slot each —
+  # so they never crowd the live ones into "+K". Waking up (a prompt, a resume)
+  # rewrites the state file, and the session is back in its slot.
+  _list=""; _hib=0
+  for f in $_all; do
+    if clawd_hibernating "$f" "$(eff_state "$(cat "$f" 2>/dev/null)" "$(agent_count "${f##*/}")")" "$now"; then
+      _hib=$((_hib + 1))
+    else
+      _list="$_list$f
+"
+    fi
+  done
   _count=0; for f in $_list; do _count=$((_count + 1)); done
   _shown="$_count"; [ "$_shown" -gt "$CLAWD_HERD_MAX" ] && _shown="$CLAWD_HERD_MAX"
+  # The blinking call-to-action means nobody at all — not even someone hibernating.
+  _nobody=0; [ "$_count" -eq 0 ] && [ "$_hib" -eq 0 ] && _nobody=1
 
   # Border alarm scans EVERY session, not just the visible ones — a waiting
   # session folded into the "+K" overflow must still glow the box orange.
   _anywait=0
-  for f in $_list; do [ "$(cat "$f" 2>/dev/null)" = "waiting" ] && { _anywait=1; break; }; done
+  for f in $_all; do [ "$(cat "$f" 2>/dev/null)" = "waiting" ] && { _anywait=1; break; }; done
 
   # Pass 1: build the animated-slot manifest and publish it BEFORE setting any
   # slot image, so the worker stops touching a slot the instant it goes static
@@ -377,7 +398,7 @@ herd_main() {
     _i=$((_i + 1))
   done
   # No sessions: slot 0 becomes a blinking white call-to-action (open/closed eyes).
-  [ "$_count" -eq 0 ] && printf 'clawd.s0 %s\n' "$BLINK_FRAMES" >>"$MULTI.tmp"
+  [ "$_nobody" = "1" ] && printf 'clawd.s0 %s\n' "$BLINK_FRAMES" >>"$MULTI.tmp"
   mv "$MULTI.tmp" "$MULTI" 2>/dev/null
 
   # Pass 2: set each visible slot's pose + show it.
@@ -394,7 +415,7 @@ herd_main() {
   done
   # no sessions at all -> one white clawd blinking (call to action) — the worker
   # cycles its frames (manifest written above); seed the open frame + show it.
-  if [ "$_count" -eq 0 ]; then
+  if [ "$_nobody" = "1" ]; then
     img_set clawd.s0 "$BLINK_OPEN"; set_badges clawd.s0 "ok" 0
     "$SB" --set clawd.s0 drawing=on >/dev/null 2>&1; _i=1
   fi
@@ -406,6 +427,14 @@ herd_main() {
   _over=$((_count - _shown))
   if [ "$_over" -gt 0 ]; then "$SB" --set clawd.more label="+$_over" label.drawing=on drawing=on >/dev/null 2>&1
   else "$SB" --set clawd.more drawing=off >/dev/null 2>&1; fi
+
+  # The hibernation clawd: asleep, with how many it stands for over its head —
+  # where a working clawd wears its agent count (the badge look is baked in by
+  # the widget). Shown even for one, so it never passes for an ordinary nap.
+  if [ "$_hib" -gt 0 ]; then
+    img_set clawd.hibernate "$CLAWD_F_SLEEP"
+    "$SB" --set clawd.hibernate icon="$_hib" drawing=on >/dev/null 2>&1
+  else "$SB" --set clawd.hibernate drawing=off >/dev/null 2>&1; fi
 
   if [ "$_anywait" = "1" ]; then set_border "waiting"; else set_border "ok"; fi
 

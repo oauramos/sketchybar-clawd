@@ -143,7 +143,11 @@ case "${1:-}" in
     type="$(printf '%s' "$json" | jq -r '.type // empty' 2>/dev/null)"
     case "$type" in
       permission_prompt | elicitation_dialog) set_state waiting ;;
-      idle_prompt) set_state idle ;;
+      idle_prompt)
+        # A nudge about a session already asleep is not activity: rewriting the
+        # file would restart its hibernation clock (the file's mtime).
+        [ "$(cat "$SESS/$sid" 2>/dev/null)" = "idle" ] && exit 0
+        set_state idle ;;
       *) exit 0 ;;
     esac ;;
   agent-start)
@@ -156,7 +160,10 @@ case "${1:-}" in
     aid="$(printf '%s' "$json" | jq -r '.agent_id // empty' 2>/dev/null)"
     safe_id "$aid" || exit 0
     rm -f "$AGENTS/$sid/$aid"
-    rmdir "$AGENTS/$sid" 2>/dev/null ;;   # tidy once the last agent is gone
+    rmdir "$AGENTS/$sid" 2>/dev/null      # tidy once the last agent is gone
+    # Stop fired before the agents finished, so the session only really went
+    # quiet now: restart its hibernation clock (never creating a missing file).
+    touch -c "$SESS/$sid" 2>/dev/null ;;
   end) rm -f "$SESS/$sid" "$OWNERS/$sid"; rm -rf "$AGENTS/${sid:?}" ;;
   *) exit 0 ;;
 esac

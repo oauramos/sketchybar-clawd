@@ -66,6 +66,19 @@ sessions() {
   printf '%s' "$_n"
 }
 
+# Sessions the bar folds into the one hibernation clawd: idle, with no subagent
+# still running, for CLAWD_HIBERNATE_AFTER. They hold no slot, so never reach +K.
+hibernating() {
+  _n=0; _now="$(date +%s)"
+  for _f in "$(clawd_sessions_dir)"/*; do
+    [ -f "$_f" ] || continue
+    _st="$(cat "$_f" 2>/dev/null)"
+    for _a in "$(clawd_agents_dir)/${_f##*/}"/*; do [ -f "$_a" ] && { _st=working; break; }; done
+    clawd_hibernating "$_f" "$_st" "$_now" && _n=$((_n + 1))
+  done
+  printf '%s' "$_n"
+}
+
 # Redraw the bar. Nothing to poke without sketchybar — the cap file still
 # applies the next time the widget loads.
 redraw() {
@@ -78,9 +91,12 @@ status() {
   if herd; then _cap="$CLAWD_HERD_MAX"; _what="clawds"; else _cap="$CLAWD_STRIP_MAX"; _what="dots"; fi
   if [ -n "$_ov" ]; then _src="set by sketchybar-clawd; rc says $_cap"; _cap="$_ov"
   else _src="the rc default"; fi
-  _n="$(sessions)"; _over=$((_n - _cap))
+  _n="$(sessions)"; _h="$(hibernating)"; _over=$((_n - _h - _cap))
   echo "cap:      up to $_cap $_what, then +K   ($_src)"
-  if [ "$_over" -gt 0 ]; then echo "sessions: $_n  (+$_over folded)"; else echo "sessions: $_n"; fi
+  _note=""
+  [ "$_over" -gt 0 ] && _note="+$_over folded"
+  [ "$_h" -gt 0 ] && _note="${_note:+$_note, }$_h hibernating"
+  echo "sessions: $_n${_note:+  ($_note)}"
   if herd; then
     _pool="$(bar_pool)"
     if [ -n "$_pool" ]; then echo "pool:     $_pool slots — a cap above this reloads SketchyBar"

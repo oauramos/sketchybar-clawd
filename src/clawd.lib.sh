@@ -45,6 +45,15 @@ clawd_cap_override() {
   [ "$_v" -ge 1 ] && printf '%s' "$_v"
 }
 
+# Has the session file $1 slept long enough to hibernate? Only an idle session
+# qualifies ($2 is its state already corrected for live subagents), and the
+# file's mtime is when it last did anything: every state change rewrites it.
+clawd_hibernating() {  # $1 session file, $2 effective state, $3 now
+  [ "$2" = "idle" ] && [ "${CLAWD_HIBERNATE_AFTER:-0}" -gt 0 ] || return 1
+  _hm="$(stat -f %m "$1" 2>/dev/null)" || return 1
+  [ $(($3 - _hm)) -ge "$CLAWD_HIBERNATE_AFTER" ]
+}
+
 # Map a session state to its status-strip glyph.
 clawd_dot() {
   case "$1" in
@@ -113,6 +122,12 @@ clawd_anim() {
 #     CLAWD_AGENT_MAX    counts above this render as "N+" (default 9)
 #     CLAWD_AGENT_TTL    forget an agent with no SubagentStop after N seconds
 #                        (default 3600) — self-heals a killed session's leftovers
+#   Hibernation (sessions asleep for ages fold into ONE clawd wearing their count):
+#     CLAWD_HIBERNATE_AFTER  seconds a session must sit idle before it gives up its
+#                        own clawd/dot for the shared one (default 3600; 0 = never).
+#                        The widget then redraws every minute so a session that
+#                        falls asleep is folded in without waiting for an event.
+#     CLAWD_DOT_HIBERNATE    hero strip: glyph before the hibernating count (default z)
 #   Waiting "?" badge (a session is waiting on you -> a "?" over its top-right):
 #     CLAWD_ASK_GLYPH    badge text (default "?")
 #     CLAWD_ASK_COLOR    badge color (default CLAWD_FG / near-white)
@@ -181,6 +196,10 @@ clawd_load_config() {
   CLAWD_AGENT_YOFF="${CLAWD_AGENT_YOFF:-$CLAWD_ASK_YOFF}"
   CLAWD_AGENT_MAX="${CLAWD_AGENT_MAX:-9}"           # above this -> "9+"
   CLAWD_AGENT_TTL="${CLAWD_AGENT_TTL:-3600}"        # drop agents that never stopped
+
+  # Sessions idle this long (s) leave their slot for the shared hibernation clawd.
+  CLAWD_HIBERNATE_AFTER="${CLAWD_HIBERNATE_AFTER:-3600}"
+  CLAWD_DOT_HIBERNATE="${CLAWD_DOT_HIBERNATE:-z}"   # hero strip: "z3" = 3 hibernating
 
   # per-session status strip
   CLAWD_SHOW_DOTS="${CLAWD_SHOW_DOTS:-1}"

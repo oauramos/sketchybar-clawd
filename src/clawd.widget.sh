@@ -81,6 +81,8 @@ _cap="$(clawd_cap_override)"
   echo "CLAWD_SHOW_AGENTS=$CLAWD_SHOW_AGENTS"
   echo "CLAWD_AGENT_MAX=$CLAWD_AGENT_MAX"
   echo "CLAWD_AGENT_TTL=$CLAWD_AGENT_TTL"
+  echo "CLAWD_HIBERNATE_AFTER=$CLAWD_HIBERNATE_AFTER"
+  echo "CLAWD_DOT_HIBERNATE=$CLAWD_DOT_HIBERNATE"
   echo "CLAWD_FRAMES_DIR=$CLAWD_FRAMES_DIR"
   echo "CLAWD_DIR_WORK=${CLAWD_DIR_WORK:-$CLAWD_FRAMES_DIR}"
   echo "CLAWD_DIR_IDLE=${CLAWD_DIR_IDLE:-$CLAWD_FRAMES_DIR}"
@@ -99,6 +101,10 @@ _cap="$(clawd_cap_override)"
 
 _plugin="$CLAWD_DIR/clawd.plugin.sh"
 _pos="$CLAWD_POSITION"
+# Nothing fires claude_state while a session just sits there asleep, so with
+# hibernation on the plugin also runs once a minute, to fold a session into the
+# hibernation clawd soon after it crosses CLAWD_HIBERNATE_AFTER. 0 = events only.
+_freq=0; [ "$CLAWD_HIBERNATE_AFTER" -gt 0 ] && _freq=60
 
 _add_mascot() {
   if [ "$CLAWD_STYLE" = "image" ]; then
@@ -112,7 +118,7 @@ _add_mascot() {
                   label.align=right label.y_offset="$CLAWD_ASK_YOFF" \
                   label.padding_left=0 label.padding_right=0 label.drawing=off \
                   width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" \
-                  script="$_plugin" \
+                  script="$_plugin" update_freq="$_freq" \
       --subscribe clawd claude_state
   else
     sketchybar --add item clawd "$_pos" \
@@ -120,7 +126,7 @@ _add_mascot() {
                   icon.padding_left=8 icon.padding_right=6 \
                   label.font="$CLAWD_ASK_FONT" label.color="$CLAWD_ASK_COLOR" \
                   label.padding_right=6 label.drawing=off \
-                  script="$_plugin" \
+                  script="$_plugin" update_freq="$_freq" \
       --subscribe clawd claude_state
   fi
 }
@@ -150,20 +156,34 @@ _add_more() {
                      label.font="$CLAWD_DOT_FONT" label.color="$CLAWD_DOT_COLOR" \
                      label.padding_left=4 label.padding_right=8 drawing=off
 }
+# The hibernation clawd: one sleeping sprite standing in for every session idle
+# past CLAWD_HIBERNATE_AFTER. It is never a session of its own, so its badge has
+# the whole width to itself — the count, pinned top-left like the agent badge.
+_add_hibernate() {
+  sketchybar --add item clawd.hibernate "$_pos" \
+    --set clawd.hibernate background.image="$CLAWD_F_SLEEP" background.image.scale="$CLAWD_IMG_SCALE" \
+                          background.image.drawing=on background.color=0x00000000 \
+                          icon.font="$CLAWD_AGENT_FONT" icon.color="$CLAWD_AGENT_COLOR" \
+                          icon.align=left icon.y_offset="$CLAWD_AGENT_YOFF" icon.width="$CLAWD_IMG_WIDTH" \
+                          icon.padding_left=0 icon.padding_right=0 label.drawing=off \
+                          width="$CLAWD_IMG_WIDTH" padding_left="$CLAWD_IMG_PAD_LEFT" drawing=off
+}
 _add_herd() {
   # invisible driver: always processes claude_state and manages the slots
   sketchybar --add item clawd "$_pos" \
     --set clawd drawing=off width=0 updates=on icon.drawing=off label.drawing=off \
-                background.drawing=off script="$_plugin" \
+                background.drawing=off script="$_plugin" update_freq="$_freq" \
     --subscribe clawd claude_state
-  # Slot order: right side lays out right-to-left, so add overflow + high indices
-  # first to keep visual order s0,s1,…,+K from left to right.
+  # Slot order: right side lays out right-to-left, so add the hibernation clawd,
+  # overflow + high indices first to keep visual order s0,s1,…,+K,zZ left to right.
   if [ "$_pos" = "right" ]; then
+    _add_hibernate
     _add_more
     _k=$((CLAWD_HERD_POOL - 1)); while [ "$_k" -ge 0 ]; do _add_slot "$_k"; _k=$((_k - 1)); done
   else
     _k=0; while [ "$_k" -lt "$CLAWD_HERD_POOL" ]; do _add_slot "$_k"; _k=$((_k + 1)); done
     _add_more
+    _add_hibernate
   fi
 }
 
@@ -172,7 +192,7 @@ sketchybar --add event claude_state
 if [ "$CLAWD_MODE" = "herd" ] && [ "$CLAWD_STYLE" = "image" ]; then
   _add_herd
   # explicit member list (sketchybar's regex doesn't do alternation)
-  _box_members="clawd.more"
+  _box_members="clawd.more clawd.hibernate"
   _k=0; while [ "$_k" -lt "$CLAWD_HERD_POOL" ]; do _box_members="clawd.s$_k $_box_members"; _k=$((_k + 1)); done
 else
   # hero — visual order left -> right: [clawd] [dots]. Right lays out right-to-left.
