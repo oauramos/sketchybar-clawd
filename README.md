@@ -1,3 +1,10 @@
+> [!IMPORTANT]
+> **sketchybar-clawd now lives in [MinBar](https://github.com/oauramos/minbar)** (folder
+> [`clawd/`](https://github.com/oauramos/minbar/tree/main/clawd), history included). This repo is
+> archived and gets no more changes. With MinBar, clawd comes set up (`brew install
+> oauramos/minbar/minbar && minbar setup`); on a SketchyBar of your own, `clawd/install.sh` in the
+> MinBar repo still installs it alone.
+
 <div align="center">
 
 # sketchybar-clawd
